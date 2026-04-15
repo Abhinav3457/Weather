@@ -1,0 +1,206 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Atmosphere Desk</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Sora:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <div class="bg-shape bg-shape-a" aria-hidden="true"></div>
+    <div class="bg-shape bg-shape-b" aria-hidden="true"></div>
+
+    <div class="app" id="app">
+      <header class="panel topbar">
+        <div>
+          <p class="eyebrow">Live Weather Intelligence</p>
+          <h1 class="dashboard-title">Atmosphere Desk</h1>
+          <p class="subtitle">
+            Plan your day with local conditions, forecast trends, and air quality.
+          </p>
+        </div>
+        <div class="topbar-actions">
+          <button id="unitToggle" class="btn ghost" type="button" aria-pressed="false">
+            Unit: Celsius
+          </button>
+          <button id="themeToggle" class="btn ghost" type="button" aria-pressed="false">
+            Theme: Light
+          </button>
+        </div>
+      </header>
+
+      <section class="panel search-panel">
+        <form id="searchForm" class="search-form">
+          <div class="search-input-wrap">
+            <label class="sr-only" for="cityInput">City</label>
+            <input
+              id="cityInput"
+              name="city"
+              type="text"
+              placeholder="Search city, e.g. Tokyo"
+              autocomplete="off"
+              aria-autocomplete="list"
+              aria-expanded="false"
+              aria-controls="suggestionsList"
+              required
+            />
+            <ul id="suggestionsList" class="suggestions-list" role="listbox" aria-label="City suggestions"></ul>
+          </div>
+          <button id="searchBtn" class="btn primary" type="submit">Search</button>
+        </form>
+
+        <div class="quick-actions">
+          <button id="locateBtn" class="btn secondary" type="button">Use My Location</button>
+          <button id="refreshBtn" class="btn ghost" type="button">Refresh</button>
+        </div>
+
+        <div class="status-row">
+          <p id="statusMessage" class="status-message" aria-live="polite"></p>
+          <p id="errorMessage" class="error" role="alert" aria-live="polite"></p>
+        </div>
+
+        <div class="chip-group-wrap">
+          <div class="chip-group">
+            <div class="chip-head">
+              <p class="chip-title">Recent Searches</p>
+              <button id="clearHistoryBtn" class="chip-action" type="button">Clear</button>
+            </div>
+            <div id="historyList" class="chip-list"></div>
+          </div>
+          <div class="chip-group">
+            <div class="chip-head">
+              <p class="chip-title">Favorites</p>
+              <button id="clearFavoritesBtn" class="chip-action" type="button">Clear</button>
+            </div>
+            <div id="favoritesList" class="chip-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <main class="dashboard-grid">
+        <section class="panel current-weather">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Current Conditions</p>
+              <h2 id="currentCity">--</h2>
+              <p id="currentTime" class="subtle">--</p>
+            </div>
+            <button
+              id="favoriteBtn"
+              class="icon-btn"
+              type="button"
+              title="Save as favorite"
+              aria-pressed="false"
+              aria-label="Save city as favorite"
+            >
+                Save
+              </button>
+          </div>
+
+          <div class="current-main">
+            <div class="temperature-box">
+              <img id="currentIcon" alt="" />
+              <div>
+                <p class="main-temp">
+                  <span id="currentTemp">--</span><span id="tempUnitSymbol">&deg;C</span>
+                </p>
+                <p id="currentCondition" class="condition">--</p>
+                <p class="subtle">
+                  Feels like
+                  <span id="currentFeels">--</span><span id="feelsUnitSymbol">&deg;C</span>
+                </p>
+              </div>
+            </div>
+
+            <div class="summary-grid">
+              <p><span>High / Low</span><strong id="currentHighLow">--</strong></p>
+              <p><span>Humidity</span><strong id="currentHumidity">--</strong></p>
+              <p><span>Wind</span><strong id="currentWind">--</strong></p>
+              <p><span>Rain Chance</span><strong id="currentRainChance">--</strong></p>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel detail-panel">
+          <div class="section-head">
+            <h3>Today Details</h3>
+          </div>
+          <div class="detail-grid">
+            <article class="detail-card">
+              <p class="detail-label">Pressure</p>
+              <p id="detailPressure" class="detail-value">--</p>
+            </article>
+            <article class="detail-card">
+              <p class="detail-label">Visibility</p>
+              <p id="detailVisibility" class="detail-value">--</p>
+            </article>
+            <article class="detail-card">
+              <p class="detail-label">Cloudiness</p>
+              <p id="detailClouds" class="detail-value">--</p>
+            </article>
+            <article class="detail-card">
+              <p class="detail-label">Sunrise</p>
+              <p id="detailSunrise" class="detail-value">--</p>
+            </article>
+            <article class="detail-card">
+              <p class="detail-label">Sunset</p>
+              <p id="detailSunset" class="detail-value">--</p>
+            </article>
+            <article class="detail-card">
+              <p class="detail-label">Timezone</p>
+              <p id="detailTimezone" class="detail-value">--</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel aqi-panel">
+          <div class="section-head">
+            <h3>Air Quality</h3>
+          </div>
+          <p id="aqiValue" class="aqi-value">--</p>
+          <p id="aqiLabel" class="aqi-label">--</p>
+          <p id="aqiAdvice" class="aqi-advice">--</p>
+        </section>
+
+        <section class="panel forecast-panel">
+          <div class="section-head">
+            <h3>5-Day Outlook</h3>
+          </div>
+          <div id="forecastGrid" class="forecast-grid"></div>
+        </section>
+
+        <section class="panel hourly-panel">
+          <div class="section-head">
+            <h3>Next 24 Hours</h3>
+            <p class="subtle">3-hour intervals</p>
+          </div>
+          <div id="hourlyStrip" class="hourly-strip"></div>
+        </section>
+
+        <section class="panel chart-panel">
+          <div class="section-head">
+            <h3>Temperature and Rain Trend</h3>
+            <p class="subtle">Live comparison</p>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="tempChart" aria-label="Temperature and rain chart"></canvas>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <p>Data by OpenWeather. API key can be changed in <span>app.js</span>.</p>
+      </footer>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
+
