@@ -198,6 +198,15 @@
       <footer class="footer">
         <p>Data by OpenWeather. API key can be changed in <span>app.js</span>.</p>
       </footer>
+
+      <!-- Detail Modal -->
+      <div id="detailModal" class="detail-modal" style="display:none;">
+        <div class="detail-modal-content">
+          <button id="closeDetailModal" class="detail-modal-close" aria-label="Close details">&times;</button>
+          <h2 id="detailModalTitle"></h2>
+          <div id="detailModalBody"></div>
+        </div>
+      </div>
     </div>
 
     <script src="app.js"></script>

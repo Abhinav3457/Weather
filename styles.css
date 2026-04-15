@@ -1,4 +1,51 @@
-﻿:root {
+﻿.detail-modal-body, #detailModalBody {
+  margin-top: 12px;
+  font-size: 1.05rem;
+  color: var(--text-main);
+  line-height: 1.6;
+}
+/* Detail Modal Styles */
+.detail-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(30, 41, 59, 0.32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeUp 0.3s;
+}
+
+.detail-modal-content {
+  background: var(--surface-strong, #fff);
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(30, 64, 175, 0.13);
+  padding: 32px 28px 22px;
+  max-width: 380px;
+  width: 92vw;
+  position: relative;
+  color: var(--text-main);
+  animation: fadeUp 0.3s;
+}
+
+.detail-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.detail-modal-close:hover {
+  color: var(--accent);
+}
+:root {
   --font-sans: "Sora", sans-serif;
   --font-display: "Playfair Display", serif;
   --sky-start: #060b1d;
@@ -538,6 +585,14 @@ body::after {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  cursor: pointer;
+  transition: box-shadow 0.18s, border-color 0.18s, background 0.18s;
+}
+
+.summary-grid p:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 4px 18px rgba(96, 165, 250, 0.10);
 }
 
 .summary-grid span {
@@ -563,6 +618,14 @@ body::after {
   border: 1px solid var(--border);
   background: rgba(8, 16, 37, 0.74);
   padding: 10px 12px;
+  cursor: pointer;
+  transition: box-shadow 0.18s, border-color 0.18s, background 0.18s;
+}
+
+.detail-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 4px 18px rgba(96, 165, 250, 0.10);
 }
 
 .detail-label {
@@ -610,6 +673,14 @@ body::after {
   padding: 12px;
   text-align: center;
   animation: fadeUp 0.4s ease both;
+  cursor: pointer;
+  transition: box-shadow 0.18s, border-color 0.18s, background 0.18s;
+}
+
+.forecast-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 4px 18px rgba(96, 165, 250, 0.10);
 }
 
 .forecast-date {
@@ -647,6 +718,14 @@ body::after {
   background: rgba(8, 16, 37, 0.74);
   padding: 10px 8px;
   text-align: center;
+  cursor: pointer;
+  transition: box-shadow 0.18s, border-color 0.18s, background 0.18s;
+}
+
+.hour-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 4px 18px rgba(96, 165, 250, 0.10);
 }
 
 .hour-card p {
@@ -762,16 +841,22 @@ body::after {
 }
 
 @media (max-width: 720px) {
-  .app {
-    width: calc(100% - 20px);
-    margin-top: 14px;
+  .chip {
+    border: 1px solid var(--border);
+    background: rgba(8, 16, 37, 0.78);
+    color: var(--text-main);
+    border-radius: 999px;
+    padding: 7px 11px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s, background 0.2s;
   }
 
-  .topbar {
-    padding: 18px;
-    flex-direction: column;
+  .chip:hover {
+    transform: translateY(-1px) scale(1.04);
+    border-color: var(--accent);
+    background: var(--accent-soft);
   }
-
   .search-panel,
   .current-weather,
   .detail-panel,

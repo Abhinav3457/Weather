@@ -1,4 +1,113 @@
-﻿const API_KEY = "bac7893eaffd11c1ff3b45e7f7f541ad";
+﻿// --- Detail Modal Logic ---
+const detailModal = document.getElementById("detailModal");
+const detailModalTitle = document.getElementById("detailModalTitle");
+const detailModalBody = document.getElementById("detailModalBody");
+const closeDetailModal = document.getElementById("closeDetailModal");
+
+function showDetailModal(title, bodyHtml) {
+  detailModalTitle.textContent = title;
+  detailModalBody.innerHTML = bodyHtml;
+  detailModal.style.display = "flex";
+}
+
+function hideDetailModal() {
+  detailModal.style.display = "none";
+}
+
+closeDetailModal.addEventListener("click", hideDetailModal);
+detailModal.addEventListener("click", (e) => {
+  if (e.target === detailModal) hideDetailModal();
+});
+
+// Details content for dashboard components
+const DETAILS_MAP = {
+  "High / Low": {
+    title: "High / Low",
+    body: "Shows the highest and lowest temperature for today. Helps you plan for the warmest and coolest parts of the day."
+  },
+  "Humidity": {
+    title: "Humidity",
+    body: "Humidity is the amount of water vapor in the air. High humidity can make it feel warmer, while low humidity feels cooler."
+  },
+  "Wind": {
+    title: "Wind",
+    body: "Wind speed and direction. Strong winds can affect outdoor activities and comfort."
+  },
+  "Rain Chance": {
+    title: "Rain Chance",
+    body: "Probability of precipitation. A higher percentage means a greater chance of rain."
+  },
+  "Pressure": {
+    title: "Pressure",
+    body: "Atmospheric pressure in hPa. Falling pressure often signals bad weather, rising pressure means improving weather."
+  },
+  "Visibility": {
+    title: "Visibility",
+    body: "How far you can see, measured in km or miles. Low visibility can be caused by fog, rain, or pollution."
+  },
+  "Cloudiness": {
+    title: "Cloudiness",
+    body: "Percentage of sky covered by clouds. More clouds usually mean less sunlight."
+  },
+  "Sunrise": {
+    title: "Sunrise",
+    body: "The time the sun rises at your location."
+  },
+  "Sunset": {
+    title: "Sunset",
+    body: "The time the sun sets at your location."
+  },
+  "Timezone": {
+    title: "Timezone",
+    body: "The local timezone offset from UTC."
+  },
+};
+
+
+// Use event delegation for summary-grid and detail-card clicks
+document.addEventListener("click", function (e) {
+  // summary-grid
+  const summary = e.target.closest(".summary-grid p");
+  if (summary) {
+    const label = summary.querySelector("span")?.textContent?.trim();
+    if (DETAILS_MAP[label]) {
+      showDetailModal(DETAILS_MAP[label].title, DETAILS_MAP[label].body);
+    }
+    return;
+  }
+  // detail-card
+  const detail = e.target.closest(".detail-card");
+  if (detail) {
+    const label = detail.querySelector(".detail-label")?.textContent?.trim();
+    if (DETAILS_MAP[label]) {
+      showDetailModal(DETAILS_MAP[label].title, DETAILS_MAP[label].body);
+    }
+    return;
+  }
+});
+
+// Add click listeners for forecast cards
+document.addEventListener("click", function (e) {
+  const card = e.target.closest(".forecast-card");
+  if (card) {
+    const date = card.querySelector(".forecast-date")?.textContent;
+    const meta = card.querySelectorAll(".forecast-meta");
+    let desc = "";
+    if (meta.length) {
+      desc = Array.from(meta).map(m => m.textContent).join("<br>");
+    }
+    showDetailModal("Forecast: " + date, desc);
+  }
+});
+
+// Add click listeners for hour cards
+document.addEventListener("click", function (e) {
+  const card = e.target.closest(".hour-card");
+  if (card) {
+    showDetailModal("Hourly Detail", card.innerHTML);
+  }
+});
+const API_KEY = "bac7893eaffd11c1ff3b45e7f7f541ad";
 const API_BASE = "https://api.openweathermap.org/data/2.5";
 const GEO_BASE = "https://api.openweathermap.org/geo/1.0";
 
