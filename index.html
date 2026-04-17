@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Atmosphere Desk</title>
+    <title>Atmosphere Desk - Weather Intelligence</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -18,65 +18,75 @@
     <div class="bg-shape bg-shape-b" aria-hidden="true"></div>
 
     <div class="app" id="app">
+      <!-- Header -->
       <header class="panel topbar">
-        <div>
+        <div class="topbar-branding">
           <p class="eyebrow">Live Weather Intelligence</p>
           <h1 class="dashboard-title">Atmosphere Desk</h1>
           <p class="subtitle">
-            Plan your day with local conditions, forecast trends, and air quality.
+            Real-time conditions, forecasts, and air quality insights
           </p>
         </div>
         <div class="topbar-actions">
-          <button id="unitToggle" class="btn ghost" type="button" aria-pressed="false">
-            Unit: Celsius
+          <button id="unitToggle" class="btn-icon-text" type="button" aria-pressed="false" title="Toggle temperature unit">
+            <span class="icon">°C</span>
+            <span class="text">Celsius</span>
           </button>
-          <button id="themeToggle" class="btn ghost" type="button" aria-pressed="false">
-            Theme: Light
+          <button id="themeToggle" class="btn-icon-text" type="button" aria-pressed="false" title="Toggle dark mode">
+            <span class="icon">☀️</span>
+            <span class="text">Light</span>
           </button>
         </div>
       </header>
 
+      <!-- Search Panel -->
       <section class="panel search-panel">
         <form id="searchForm" class="search-form">
           <div class="search-input-wrap">
-            <label class="sr-only" for="cityInput">City</label>
+            <label class="sr-only" for="cityInput">Search city</label>
             <input
               id="cityInput"
               name="city"
               type="text"
-              placeholder="Search city, e.g. Tokyo"
+              placeholder="Search any city worldwide..."
               autocomplete="off"
               aria-autocomplete="list"
               aria-expanded="false"
               aria-controls="suggestionsList"
-              required
             />
             <ul id="suggestionsList" class="suggestions-list" role="listbox" aria-label="City suggestions"></ul>
           </div>
-          <button id="searchBtn" class="btn primary" type="submit">Search</button>
+          <button id="searchBtn" class="btn btn-primary" type="submit">
+            <span class="btn-content">Search</span>
+          </button>
         </form>
 
         <div class="quick-actions">
-          <button id="locateBtn" class="btn secondary" type="button">Use My Location</button>
-          <button id="refreshBtn" class="btn ghost" type="button">Refresh</button>
+          <button id="locateBtn" class="btn btn-secondary" type="button" title="Use your current location">
+            📍 Current Location
+          </button>
+          <button id="refreshBtn" class="btn btn-ghost" type="button" title="Refresh weather data">
+            ↻ Refresh
+          </button>
         </div>
 
         <div class="status-row">
           <p id="statusMessage" class="status-message" aria-live="polite"></p>
-          <p id="errorMessage" class="error" role="alert" aria-live="polite"></p>
+          <p id="errorMessage" class="error-message" role="alert" aria-live="assertive"></p>
         </div>
 
+        <!-- Search History & Favorites -->
         <div class="chip-group-wrap">
           <div class="chip-group">
             <div class="chip-head">
-              <p class="chip-title">Recent Searches</p>
+              <h3 class="chip-title">Recent Searches</h3>
               <button id="clearHistoryBtn" class="chip-action" type="button">Clear</button>
             </div>
             <div id="historyList" class="chip-list"></div>
           </div>
           <div class="chip-group">
             <div class="chip-head">
-              <p class="chip-title">Favorites</p>
+              <h3 class="chip-title">Favorites</h3>
               <button id="clearFavoritesBtn" class="chip-action" type="button">Clear</button>
             </div>
             <div id="favoritesList" class="chip-list"></div>
@@ -84,91 +94,111 @@
         </div>
       </section>
 
+      <!-- Main Dashboard Grid -->
       <main class="dashboard-grid">
+        <!-- Current Weather Card -->
         <section class="panel current-weather">
           <div class="section-head">
             <div>
               <p class="eyebrow">Current Conditions</p>
-              <h2 id="currentCity">--</h2>
-              <p id="currentTime" class="subtle">--</p>
+              <h2 id="currentCity" class="location-title">--</h2>
+              <p id="currentTime" class="timestamp">--</p>
             </div>
             <button
               id="favoriteBtn"
-              class="icon-btn"
+              class="btn-favorite"
               type="button"
               title="Save as favorite"
               aria-pressed="false"
               aria-label="Save city as favorite"
             >
-                Save
-              </button>
+              ★
+            </button>
           </div>
 
           <div class="current-main">
             <div class="temperature-box">
-              <img id="currentIcon" alt="" />
-              <div>
+              <img id="currentIcon" alt="" class="weather-icon-large" />
+              <div class="temp-info">
                 <p class="main-temp">
-                  <span id="currentTemp">--</span><span id="tempUnitSymbol">&deg;C</span>
+                  <span id="currentTemp">--</span><span id="tempUnitSymbol">°C</span>
                 </p>
                 <p id="currentCondition" class="condition">--</p>
-                <p class="subtle">
-                  Feels like
-                  <span id="currentFeels">--</span><span id="feelsUnitSymbol">&deg;C</span>
+                <p class="feels-like">
+                  Feels like <span id="currentFeels">--</span><span id="feelsUnitSymbol">°C</span>
                 </p>
               </div>
             </div>
 
             <div class="summary-grid">
-              <p><span>High / Low</span><strong id="currentHighLow">--</strong></p>
-              <p><span>Humidity</span><strong id="currentHumidity">--</strong></p>
-              <p><span>Wind</span><strong id="currentWind">--</strong></p>
-              <p><span>Rain Chance</span><strong id="currentRainChance">--</strong></p>
+              <div class="summary-item" data-tooltip="Highest and lowest temperature today">
+                <span class="label">High / Low</span>
+                <strong id="currentHighLow">--</strong>
+              </div>
+              <div class="summary-item" data-tooltip="Water vapor in the air">
+                <span class="label">Humidity</span>
+                <strong id="currentHumidity">--</strong>
+              </div>
+              <div class="summary-item" data-tooltip="Wind speed and conditions">
+                <span class="label">Wind</span>
+                <strong id="currentWind">--</strong>
+              </div>
+              <div class="summary-item" data-tooltip="Probability of precipitation">
+                <span class="label">Rain Chance</span>
+                <strong id="currentRainChance">--</strong>
+              </div>
             </div>
           </div>
         </section>
 
+        <!-- Details Panel -->
         <section class="panel detail-panel">
           <div class="section-head">
-            <h3>Today Details</h3>
+            <h3>Today's Details</h3>
           </div>
           <div class="detail-grid">
-            <article class="detail-card">
+            <article class="detail-card" data-tooltip="Atmospheric pressure (hPa)">
               <p class="detail-label">Pressure</p>
               <p id="detailPressure" class="detail-value">--</p>
             </article>
-            <article class="detail-card">
+            <article class="detail-card" data-tooltip="Distance of visibility (km/mi)">
               <p class="detail-label">Visibility</p>
               <p id="detailVisibility" class="detail-value">--</p>
             </article>
-            <article class="detail-card">
+            <article class="detail-card" data-tooltip="Sky coverage percentage">
               <p class="detail-label">Cloudiness</p>
               <p id="detailClouds" class="detail-value">--</p>
             </article>
-            <article class="detail-card">
+            <article class="detail-card" data-tooltip="Sunrise time in local timezone">
               <p class="detail-label">Sunrise</p>
               <p id="detailSunrise" class="detail-value">--</p>
             </article>
-            <article class="detail-card">
+            <article class="detail-card" data-tooltip="Sunset time in local timezone">
               <p class="detail-label">Sunset</p>
               <p id="detailSunset" class="detail-value">--</p>
             </article>
-            <article class="detail-card">
+            <article class="detail-card" data-tooltip="Local timezone offset from UTC">
               <p class="detail-label">Timezone</p>
               <p id="detailTimezone" class="detail-value">--</p>
             </article>
           </div>
         </section>
 
+        <!-- Air Quality Panel -->
         <section class="panel aqi-panel">
           <div class="section-head">
-            <h3>Air Quality</h3>
+            <h3>Air Quality Index</h3>
           </div>
-          <p id="aqiValue" class="aqi-value">--</p>
-          <p id="aqiLabel" class="aqi-label">--</p>
-          <p id="aqiAdvice" class="aqi-advice">--</p>
+          <div class="aqi-content">
+            <div class="aqi-display">
+              <p id="aqiValue" class="aqi-value">--</p>
+              <p id="aqiLabel" class="aqi-label">--</p>
+            </div>
+            <p id="aqiAdvice" class="aqi-advice">--</p>
+          </div>
         </section>
 
+        <!-- 5-Day Forecast -->
         <section class="panel forecast-panel">
           <div class="section-head">
             <h3>5-Day Outlook</h3>
@@ -176,35 +206,38 @@
           <div id="forecastGrid" class="forecast-grid"></div>
         </section>
 
+        <!-- Hourly Forecast -->
         <section class="panel hourly-panel">
           <div class="section-head">
             <h3>Next 24 Hours</h3>
-            <p class="subtle">3-hour intervals</p>
+            <p class="subtitle-small">3-hour intervals</p>
           </div>
           <div id="hourlyStrip" class="hourly-strip"></div>
         </section>
 
+        <!-- Temperature & Rain Chart -->
         <section class="panel chart-panel">
           <div class="section-head">
-            <h3>Temperature and Rain Trend</h3>
-            <p class="subtle">Live comparison</p>
+            <h3>Temperature & Rain Trend</h3>
+            <p class="subtitle-small">8-hour forecast</p>
           </div>
           <div class="chart-wrap">
-            <canvas id="tempChart" aria-label="Temperature and rain chart"></canvas>
+            <canvas id="tempChart" aria-label="Temperature and precipitation trend"></canvas>
           </div>
         </section>
       </main>
 
+      <!-- Footer -->
       <footer class="footer">
-        <p>Data by OpenWeather. API key can be changed in <span>app.js</span>.</p>
+        <p>Weather data powered by <strong>OpenWeather API</strong> • Update your API key in <code>app.js</code></p>
       </footer>
 
       <!-- Detail Modal -->
-      <div id="detailModal" class="detail-modal" style="display:none;">
-        <div class="detail-modal-content">
-          <button id="closeDetailModal" class="detail-modal-close" aria-label="Close details">&times;</button>
-          <h2 id="detailModalTitle"></h2>
-          <div id="detailModalBody"></div>
+      <div id="detailModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-content">
+          <button id="closeDetailModal" class="modal-close" aria-label="Close details">✕</button>
+          <h2 id="detailModalTitle" class="modal-title"></h2>
+          <div id="detailModalBody" class="modal-body"></div>
         </div>
       </div>
     </div>
@@ -212,4 +245,3 @@
     <script src="app.js"></script>
   </body>
 </html>
-

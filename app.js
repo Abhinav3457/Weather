@@ -1,124 +1,17 @@
-﻿// --- Detail Modal Logic ---
-const detailModal = document.getElementById("detailModal");
-const detailModalTitle = document.getElementById("detailModalTitle");
-const detailModalBody = document.getElementById("detailModalBody");
-const closeDetailModal = document.getElementById("closeDetailModal");
-
-function showDetailModal(title, bodyHtml) {
-  detailModalTitle.textContent = title;
-  detailModalBody.innerHTML = bodyHtml;
-  detailModal.style.display = "flex";
-}
-
-function hideDetailModal() {
-  detailModal.style.display = "none";
-}
-
-closeDetailModal.addEventListener("click", hideDetailModal);
-detailModal.addEventListener("click", (e) => {
-  if (e.target === detailModal) hideDetailModal();
-});
-
-// Details content for dashboard components
-const DETAILS_MAP = {
-  "High / Low": {
-    title: "High / Low",
-    body: "Shows the highest and lowest temperature for today. Helps you plan for the warmest and coolest parts of the day."
-  },
-  "Humidity": {
-    title: "Humidity",
-    body: "Humidity is the amount of water vapor in the air. High humidity can make it feel warmer, while low humidity feels cooler."
-  },
-  "Wind": {
-    title: "Wind",
-    body: "Wind speed and direction. Strong winds can affect outdoor activities and comfort."
-  },
-  "Rain Chance": {
-    title: "Rain Chance",
-    body: "Probability of precipitation. A higher percentage means a greater chance of rain."
-  },
-  "Pressure": {
-    title: "Pressure",
-    body: "Atmospheric pressure in hPa. Falling pressure often signals bad weather, rising pressure means improving weather."
-  },
-  "Visibility": {
-    title: "Visibility",
-    body: "How far you can see, measured in km or miles. Low visibility can be caused by fog, rain, or pollution."
-  },
-  "Cloudiness": {
-    title: "Cloudiness",
-    body: "Percentage of sky covered by clouds. More clouds usually mean less sunlight."
-  },
-  "Sunrise": {
-    title: "Sunrise",
-    body: "The time the sun rises at your location."
-  },
-  "Sunset": {
-    title: "Sunset",
-    body: "The time the sun sets at your location."
-  },
-  "Timezone": {
-    title: "Timezone",
-    body: "The local timezone offset from UTC."
-  },
-};
-
-
-// Use event delegation for summary-grid and detail-card clicks
-document.addEventListener("click", function (e) {
-  // summary-grid
-  const summary = e.target.closest(".summary-grid p");
-  if (summary) {
-    const label = summary.querySelector("span")?.textContent?.trim();
-    if (DETAILS_MAP[label]) {
-      showDetailModal(DETAILS_MAP[label].title, DETAILS_MAP[label].body);
-    }
-    return;
-  }
-  // detail-card
-  const detail = e.target.closest(".detail-card");
-  if (detail) {
-    const label = detail.querySelector(".detail-label")?.textContent?.trim();
-    if (DETAILS_MAP[label]) {
-      showDetailModal(DETAILS_MAP[label].title, DETAILS_MAP[label].body);
-    }
-    return;
-  }
-});
-
-// Add click listeners for forecast cards
-document.addEventListener("click", function (e) {
-  const card = e.target.closest(".forecast-card");
-  if (card) {
-    const date = card.querySelector(".forecast-date")?.textContent;
-    const meta = card.querySelectorAll(".forecast-meta");
-    let desc = "";
-    if (meta.length) {
-      desc = Array.from(meta).map(m => m.textContent).join("<br>");
-    }
-    showDetailModal("Forecast: " + date, desc);
-  }
-});
-
-// Add click listeners for hour cards
-document.addEventListener("click", function (e) {
-  const card = e.target.closest(".hour-card");
-  if (card) {
-    showDetailModal("Hourly Detail", card.innerHTML);
-  }
-});
-const API_KEY = "bac7893eaffd11c1ff3b45e7f7f541ad";
+﻿// ==================== API & Storage Configuration ====================
+const API_KEY = "bac7893eaffd11c1ff3b45e7f7f541ad"; // Replace with your API key
 const API_BASE = "https://api.openweathermap.org/data/2.5";
 const GEO_BASE = "https://api.openweathermap.org/geo/1.0";
 
 const STORAGE_KEYS = {
-  history: "weather-history-v2",
-  favorites: "weather-favorites-v2",
-  theme: "weather-theme-v2",
-  units: "weather-units-v2",
-  lastPlace: "weather-last-place-v2",
+  history: "weather-history-v3",
+  favorites: "weather-favorites-v3",
+  theme: "weather-theme-v3",
+  units: "weather-units-v3",
+  lastPlace: "weather-last-place-v3",
 };
 
+// ==================== DOM Elements ====================
 const elements = {
   app: document.getElementById("app"),
   form: document.getElementById("searchForm"),
@@ -160,8 +53,13 @@ const elements = {
   forecastGrid: document.getElementById("forecastGrid"),
   hourlyStrip: document.getElementById("hourlyStrip"),
   tempChart: document.getElementById("tempChart"),
+  detailModal: document.getElementById("detailModal"),
+  detailModalTitle: document.getElementById("detailModalTitle"),
+  detailModalBody: document.getElementById("detailModalBody"),
+  closeDetailModal: document.getElementById("closeDetailModal"),
 };
 
+// ==================== Application State ====================
 const state = {
   units: localStorage.getItem(STORAGE_KEYS.units) || "metric",
   current: null,
@@ -174,86 +72,65 @@ const state = {
   suggestionToken: 0,
 };
 
-const BUTTON_TEXT = {
-  search: "Search",
-  locate: "Use My Location",
-  refresh: "Refresh",
-};
-
-const POPULAR_CITY_HINTS = [
+const POPULAR_CITIES = [
   "New York, US",
   "London, GB",
   "Tokyo, JP",
-  "Delhi, IN",
   "Paris, FR",
   "Dubai, AE",
+  "Singapore, SG",
+  "Sydney, AU",
+  "Toronto, CA",
 ];
 
+const AQI_LEVELS = {
+  1: { label: "Good", advice: "Air quality is healthy for most people." },
+  2: { label: "Fair", advice: "Acceptable air quality. Sensitive groups may be affected." },
+  3: { label: "Moderate", advice: "Reduce long outdoor activities if you are sensitive." },
+  4: { label: "Poor", advice: "Limit outdoor exertion and keep windows closed." },
+  5: { label: "Very Poor", advice: "Avoid outdoor activities and wear N95 masks if necessary." },
+};
+
 const WEATHER_GRADIENTS = {
-  clear: { start: "#061231", end: "#1b3f7a" },
-  clouds: { start: "#0a1836", end: "#243f72" },
-  rain: { start: "#080f24", end: "#2b2d6f" },
-  drizzle: { start: "#0b1430", end: "#254f86" },
-  thunderstorm: { start: "#040814", end: "#201f4f" },
-  snow: { start: "#0d1f3f", end: "#355d8d" },
-  mist: { start: "#0b1732", end: "#2f4b77" },
-  default: { start: "#060b1d", end: "#162a58" },
+  clear: { start: "#f0f7ff", end: "#bfdbfe" },
+  clouds: { start: "#f1f5f9", end: "#cbd5e1" },
+  rain: { start: "#e0f2fe", end: "#a5f3fc" },
+  drizzle: { start: "#eff6ff", end: "#bfdbfe" },
+  thunderstorm: { start: "#1e1b4b", end: "#3f3f46" },
+  snow: { start: "#f8fafc", end: "#e2e8f0" },
+  mist: { start: "#e5e7eb", end: "#d1d5db" },
+  default: { start: "#f0f7ff", end: "#dbeafe" },
 };
 
-const AQI_MAP = {
-  1: {
-    label: "Good",
-    advice: "Air quality is healthy for most people.",
-  },
-  2: {
-    label: "Fair",
-    advice: "Acceptable conditions. Sensitive groups should stay aware.",
-  },
-  3: {
-    label: "Moderate",
-    advice: "Consider reducing long outdoor activity if you are sensitive.",
-  },
-  4: {
-    label: "Poor",
-    advice: "Limit prolonged outdoor exertion and keep windows closed.",
-  },
-  5: {
-    label: "Very Poor",
-    advice: "Try to stay indoors and use masks if outside for long periods.",
-  },
-};
+// ==================== Utility Functions ====================
 
-const capitalize = (value) => value.charAt(0).toUpperCase() + value.slice(1);
+const unitSymbol = () => (state.units === "metric" ? "°C" : "°F");
 
-const unitSymbol = () => (state.units === "metric" ? "\u00B0C" : "\u00B0F");
+const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
 
 const getStoredList = (key) => {
-  const raw = localStorage.getItem(key);
-  if (!raw) {
-    return [];
-  }
-
   try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    const raw = localStorage.getItem(key);
+    return (raw && JSON.parse(raw)) || [];
   } catch {
     return [];
   }
 };
 
-const setStoredList = (key, list) => {
-  localStorage.setItem(key, JSON.stringify(list));
-};
+const setStoredList = (key, list) => localStorage.setItem(key, JSON.stringify(list));
 
 const formatOffset = (offsetSeconds) => {
   const sign = offsetSeconds >= 0 ? "+" : "-";
-  const absolute = Math.abs(offsetSeconds);
-  const hours = String(Math.floor(absolute / 3600)).padStart(2, "0");
-  const minutes = String(Math.floor((absolute % 3600) / 60)).padStart(2, "0");
+  const hours = Math.floor(Math.abs(offsetSeconds) / 3600)
+    .toString()
+    .padStart(2, "0");
+  const minutes = Math.floor((Math.abs(offsetSeconds) % 3600) / 60)
+    .toString()
+    .padStart(2, "0");
   return `UTC${sign}${hours}:${minutes}`;
 };
 
-const formatInTimezone = (unixSeconds, offsetSeconds, options) => {
+const formatTime = (unixSeconds, offsetSeconds, options) => {
   const shifted = new Date((unixSeconds + offsetSeconds) * 1000);
   return new Intl.DateTimeFormat(undefined, {
     ...options,
@@ -261,121 +138,67 @@ const formatInTimezone = (unixSeconds, offsetSeconds, options) => {
   }).format(shifted);
 };
 
-const getDateKeyInOffset = (unixSeconds, offsetSeconds) => {
+const getDateKey = (unixSeconds, offsetSeconds) => {
   const shifted = new Date((unixSeconds + offsetSeconds) * 1000);
-  const year = shifted.getUTCFullYear();
-  const month = String(shifted.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(shifted.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}-${String(shifted.getUTCDate()).padStart(2, "0")}`;
 };
 
-const getHourInOffset = (unixSeconds, offsetSeconds) => {
+const getHour = (unixSeconds, offsetSeconds) => {
   const shifted = new Date((unixSeconds + offsetSeconds) * 1000);
   return shifted.getUTCHours();
 };
 
-const setStatus = (message) => {
-  elements.status.textContent = message;
+// ==================== UI State Management ====================
+
+const setStatus = (msg) => {
+  elements.status.textContent = msg;
+};
+
+const setError = (msg) => {
+  elements.error.textContent = msg;
 };
 
 const clearError = () => {
   elements.error.textContent = "";
 };
 
-const setError = (message) => {
-  elements.error.textContent = message;
-};
-
 const setLoading = (loading) => {
   elements.app.classList.toggle("is-loading", loading);
 };
 
-const setActionButtonBusy = (action, busy) => {
-  if (!action || !BUTTON_TEXT[action]) {
-    return;
-  }
-
-  const actionMap = {
-    search: elements.searchBtn,
-    locate: elements.locateBtn,
-    refresh: elements.refreshBtn,
-  };
-
-  const button = actionMap[action];
-  if (!button) {
-    return;
-  }
-
-  button.dataset.busy = busy ? "true" : "false";
-  button.textContent = busy ? `${BUTTON_TEXT[action].replace("Use My Location", "Locating").replace("Refresh", "Refreshing").replace("Search", "Searching")}...` : BUTTON_TEXT[action];
-
-  if (action === "search") {
-    if (busy) {
-      button.disabled = true;
-    } else {
-      button.disabled = elements.input.value.trim().length === 0;
-    }
-  } else {
-    button.disabled = busy;
-  }
-};
-
-const runAction = async (action, task) => {
-  const actionMap = {
-    search: elements.searchBtn,
-    locate: elements.locateBtn,
-    refresh: elements.refreshBtn,
-  };
-
-  const button = actionMap[action];
-  if (button?.dataset.busy === "true") {
-    return;
-  }
-
-  setActionButtonBusy(action, true);
-  try {
-    await task();
-  } finally {
-    setActionButtonBusy(action, false);
-  }
-};
-
 const updateSearchButtonState = () => {
-  if (elements.searchBtn.dataset.busy === "true") {
-    return;
-  }
-
-  elements.searchBtn.disabled = elements.input.value.trim().length === 0;
+  const hasInput = elements.input.value.trim().length > 0;
+  elements.searchBtn.disabled = !hasInput;
 };
+
+// ==================== Suggestion Management ====================
 
 const getLocalSuggestions = (query) => {
-  const normalized = query.toLowerCase();
+  const lower = query.toLowerCase();
   const recent = getStoredList(STORAGE_KEYS.history).map((item) => ({
     label: item,
     cityQuery: item,
     source: "Recent search",
   }));
-  const favorites = getStoredList(STORAGE_KEYS.favorites).map((item) => ({
+  const favs = getStoredList(STORAGE_KEYS.favorites).map((item) => ({
     label: item,
     cityQuery: item,
     source: "Favorite",
   }));
-  const popular = POPULAR_CITY_HINTS.map((item) => ({
+  const popular = POPULAR_CITIES.map((item) => ({
     label: item,
     cityQuery: item,
     source: "Popular city",
   }));
 
-  const merged = [...favorites, ...recent, ...popular];
+  const all = [...favs, ...recent, ...popular];
   const seen = new Set();
 
-  return merged
-    .filter((item) => item.label.toLowerCase().includes(normalized))
+  return all
+    .filter((item) => item.label.toLowerCase().includes(lower))
     .filter((item) => {
       const key = item.label.toLowerCase();
-      if (seen.has(key)) {
-        return false;
-      }
+      if (seen.has(key)) return false;
       seen.add(key);
       return true;
     })
@@ -383,33 +206,31 @@ const getLocalSuggestions = (query) => {
 };
 
 const getRemoteSuggestions = async (query) => {
-  if (!API_KEY || API_KEY === "YOUR_OPENWEATHER_KEY" || query.length < 2) {
-    return [];
-  }
+  if (!API_KEY || query.length < 2) return [];
 
-  const url = buildUrl(`${GEO_BASE}/direct`, {
-    q: query,
-    limit: 5,
-    appid: API_KEY,
-  });
+  try {
+    const url = buildUrl(`${GEO_BASE}/direct`, {
+      q: query,
+      limit: 5,
+      appid: API_KEY,
+    });
 
-  const data = await fetchJson(url, "Unable to load city suggestions.");
-  return data.map((item) => {
-    const fullLabel = [item.name, item.state, item.country].filter(Boolean).join(", ");
-    return {
-      label: fullLabel,
+    const data = await fetchJson(url, null);
+    if (!data) return [];
+
+    return data.map((item) => ({
+      label: [item.name, item.state, item.country].filter(Boolean).join(", "),
       cityQuery: `${item.name}, ${item.country}`,
       cityLabel: `${item.name}, ${item.country}`,
       source: "Live match",
-      coords: {
-        lat: item.lat,
-        lon: item.lon,
-      },
-    };
-  });
+      coords: { lat: item.lat, lon: item.lon },
+    }));
+  } catch {
+    return [];
+  }
 };
 
-const renderSuggestionList = () => {
+const renderSuggestions = () => {
   const list = elements.suggestionsList;
   list.innerHTML = "";
 
@@ -419,30 +240,19 @@ const renderSuggestionList = () => {
     return;
   }
 
-  state.suggestions.forEach((item, index) => {
+  state.suggestions.forEach((item, idx) => {
     const li = document.createElement("li");
-    const button = document.createElement("button");
-    const title = document.createElement("span");
-    const source = document.createElement("span");
+    const btn = document.createElement("button");
 
-    button.type = "button";
-    button.className = "suggestion-item";
-    button.setAttribute("role", "option");
-    button.setAttribute("aria-selected", "false");
-    button.dataset.index = String(index);
+    btn.type = "button";
+    btn.className = "suggestion-item";
+    btn.setAttribute("role", "option");
+    btn.dataset.index = idx;
 
-    title.className = "suggestion-main";
-    title.textContent = item.label;
-    source.className = "suggestion-sub";
-    source.textContent = item.source;
+    btn.innerHTML = `<span class="suggestion-main">${item.label}</span><span class="suggestion-sub">${item.source}</span>`;
+    btn.addEventListener("click", () => applySuggestion(idx));
 
-    button.appendChild(title);
-    button.appendChild(source);
-    button.addEventListener("click", () => {
-      applySuggestion(index);
-    });
-
-    li.appendChild(button);
+    li.appendChild(btn);
     list.appendChild(li);
   });
 
@@ -454,50 +264,8 @@ const renderSuggestionList = () => {
 const hideSuggestions = () => {
   state.suggestions = [];
   state.activeSuggestionIndex = -1;
-  elements.suggestionsList.innerHTML = "";
   elements.suggestionsList.classList.remove("open");
   elements.input.setAttribute("aria-expanded", "false");
-};
-
-const setActiveSuggestion = (index) => {
-  const buttons = elements.suggestionsList.querySelectorAll(".suggestion-item");
-  state.activeSuggestionIndex = index;
-
-  buttons.forEach((button, itemIndex) => {
-    const active = itemIndex === index;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-selected", String(active));
-
-    if (active) {
-      button.scrollIntoView({
-        block: "nearest",
-      });
-    }
-  });
-};
-
-const applySuggestion = async (index) => {
-  const picked = state.suggestions[index];
-  if (!picked) {
-    return;
-  }
-
-  elements.input.value = picked.label;
-  hideSuggestions();
-  updateSearchButtonState();
-
-  await runAction("search", async () => {
-    if (picked.coords) {
-      await loadWeatherByCoords(picked.coords.lat, picked.coords.lon, {
-        addToHistory: true,
-        cityLabel: picked.cityLabel || picked.cityQuery,
-      });
-    } else {
-      await loadWeatherByCity(picked.cityQuery, {
-        addToHistory: true,
-      });
-    }
-  });
 };
 
 const refreshSuggestions = async (query) => {
@@ -506,43 +274,51 @@ const refreshSuggestions = async (query) => {
 
   if (!query) {
     state.suggestions = local.slice(0, 6);
-    renderSuggestionList();
+    renderSuggestions();
     return;
   }
 
-  let remote = [];
-  try {
-    remote = await getRemoteSuggestions(query);
-  } catch {
-    remote = [];
-  }
+  const remote = await getRemoteSuggestions(query);
 
-  if (token !== state.suggestionToken) {
-    return;
-  }
+  if (token !== state.suggestionToken) return;
 
   const seen = new Set();
-  state.suggestions = [...local, ...remote].filter((item) => {
-    const key = item.label.toLowerCase();
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  }).slice(0, 8);
+  state.suggestions = [...local, ...remote]
+    .filter((item) => {
+      const key = item.label.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 8);
 
-  renderSuggestionList();
+  renderSuggestions();
 };
 
 const scheduleSuggestions = (query) => {
-  if (state.suggestionDebounce) {
-    clearTimeout(state.suggestionDebounce);
-  }
-
-  state.suggestionDebounce = setTimeout(() => {
-    refreshSuggestions(query);
-  }, 220);
+  clearTimeout(state.suggestionDebounce);
+  state.suggestionDebounce = setTimeout(() => refreshSuggestions(query), 220);
 };
+
+const applySuggestion = async (idx) => {
+  const picked = state.suggestions[idx];
+  if (!picked) return;
+
+  elements.input.value = picked.label;
+  hideSuggestions();
+  updateSearchButtonState();
+
+  if (picked.coords) {
+    await loadWeatherByCoords(picked.coords.lat, picked.coords.lon, {
+      addToHistory: true,
+      cityLabel: picked.cityLabel || picked.cityQuery,
+    });
+  } else {
+    await loadWeatherByCity(picked.cityQuery, { addToHistory: true });
+  }
+};
+
+// ==================== API Calls ====================
 
 const buildUrl = (base, params) => {
   const url = new URL(base);
@@ -552,12 +328,15 @@ const buildUrl = (base, params) => {
   return url.toString();
 };
 
-const fetchJson = async (url, fallbackMessage) => {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(fallbackMessage);
+const fetchJson = async (url, errorMsg) => {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(errorMsg || "API Error");
+    return response.json();
+  } catch (error) {
+    if (errorMsg) throw new Error(errorMsg);
+    throw error;
   }
-  return response.json();
 };
 
 const getCoordsByCity = async (city) => {
@@ -566,125 +345,50 @@ const getCoordsByCity = async (city) => {
     limit: 1,
     appid: API_KEY,
   });
-
-  const data = await fetchJson(url, "Could not find that city.");
-  if (!data.length) {
-    throw new Error("City not found. Please try another search.");
-  }
-
+  const data = await fetchJson(url, "City not found. Try another search.");
+  if (!data.length) throw new Error("City not found.");
   return data[0];
 };
 
-const getCurrentWeather = (lat, lon) => {
-  const url = buildUrl(`${API_BASE}/weather`, {
-    lat,
-    lon,
-    units: state.units,
-    appid: API_KEY,
-  });
+const getCurrentWeather = (lat, lon) =>
+  fetchJson(
+    buildUrl(`${API_BASE}/weather`, {
+      lat,
+      lon,
+      units: state.units,
+      appid: API_KEY,
+    }),
+    "Unable to load weather data."
+  );
 
-  return fetchJson(url, "Unable to load current weather.");
-};
+const getForecast = (lat, lon) =>
+  fetchJson(
+    buildUrl(`${API_BASE}/forecast`, {
+      lat,
+      lon,
+      units: state.units,
+      appid: API_KEY,
+    }),
+    "Unable to load forecast data."
+  );
 
-const getForecast = (lat, lon) => {
-  const url = buildUrl(`${API_BASE}/forecast`, {
-    lat,
-    lon,
-    units: state.units,
-    appid: API_KEY,
-  });
+const getAirQuality = (lat, lon) =>
+  fetchJson(
+    buildUrl(`${API_BASE}/air_pollution`, {
+      lat,
+      lon,
+      appid: API_KEY,
+    }),
+    null
+  );
 
-  return fetchJson(url, "Unable to load forecast data.");
-};
-
-const getAirQuality = (lat, lon) => {
-  const url = buildUrl(`${API_BASE}/air_pollution`, {
-    lat,
-    lon,
-    appid: API_KEY,
-  });
-
-  return fetchJson(url, "Unable to load air quality data.");
-};
+// ==================== Weather Display Updates ====================
 
 const setWeatherGradient = (mainCondition) => {
-  const key = mainCondition.toLowerCase();
-  const chosen = WEATHER_GRADIENTS[key] || WEATHER_GRADIENTS.default;
-  document.documentElement.style.setProperty("--sky-start", chosen.start);
-  document.documentElement.style.setProperty("--sky-end", chosen.end);
-};
-
-const setUnitButton = () => {
-  const isMetric = state.units === "metric";
-  elements.unitToggle.textContent = `Unit: ${isMetric ? "Celsius" : "Fahrenheit"}`;
-  elements.unitToggle.setAttribute("aria-pressed", String(!isMetric));
-  elements.tempUnitSymbol.textContent = unitSymbol();
-  elements.feelsUnitSymbol.textContent = unitSymbol();
-};
-
-const setTheme = (theme) => {
-  document.documentElement.dataset.theme = theme;
-  const dark = theme === "dark";
-  elements.themeToggle.textContent = `Theme: ${dark ? "Dark" : "Light"}`;
-  elements.themeToggle.setAttribute("aria-pressed", String(dark));
-  localStorage.setItem(STORAGE_KEYS.theme, theme);
-
-  if (state.current?.forecast) {
-    updateChart(state.current.forecast, state.current.current.timezone);
-  }
-};
-
-const renderChipList = (container, items, emptyText, onClick) => {
-  container.innerHTML = "";
-
-  if (!items.length) {
-    const empty = document.createElement("span");
-    empty.className = "chip empty";
-    empty.textContent = emptyText;
-    container.appendChild(empty);
-    return;
-  }
-
-  items.forEach((item) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "chip";
-    button.textContent = item;
-    button.addEventListener("click", () => onClick(item));
-    container.appendChild(button);
-  });
-};
-
-const renderHistory = () => {
-  const history = getStoredList(STORAGE_KEYS.history);
-  renderChipList(elements.historyList, history, "No recent searches", (city) => {
-    loadWeatherByCity(city, { addToHistory: false });
-  });
-  elements.clearHistoryBtn.disabled = history.length === 0;
-};
-
-const renderFavorites = () => {
-  const favorites = getStoredList(STORAGE_KEYS.favorites);
-  renderChipList(elements.favoritesList, favorites, "No favorites yet", (city) => {
-    loadWeatherByCity(city, { addToHistory: false });
-  });
-  elements.clearFavoritesBtn.disabled = favorites.length === 0;
-
-  const isFav = favorites.includes(state.weatherLabel);
-  elements.favoriteBtn.classList.toggle("active", isFav);
-  elements.favoriteBtn.textContent = isFav ? "Saved" : "Save";
-  elements.favoriteBtn.setAttribute("aria-pressed", String(isFav));
-};
-
-const saveHistory = (cityLabel) => {
-  const current = getStoredList(STORAGE_KEYS.history);
-  const next = [cityLabel, ...current.filter((city) => city !== cityLabel)].slice(0, 8);
-  setStoredList(STORAGE_KEYS.history, next);
-  renderHistory();
-};
-
-const saveLastPlace = (place) => {
-  localStorage.setItem(STORAGE_KEYS.lastPlace, JSON.stringify(place));
+  const condition = mainCondition.toLowerCase();
+  const gradient = WEATHER_GRADIENTS[condition] || WEATHER_GRADIENTS.default;
+  document.documentElement.style.setProperty("--sky-start", gradient.start);
+  document.documentElement.style.setProperty("--sky-end", gradient.end);
 };
 
 const updateCurrentWeather = (weather, forecastFirstEntry) => {
@@ -695,7 +399,7 @@ const updateCurrentWeather = (weather, forecastFirstEntry) => {
   elements.currentTemp.textContent = Math.round(weather.main.temp);
   elements.currentFeels.textContent = Math.round(weather.main.feels_like);
   elements.currentHumidity.textContent = `${weather.main.humidity}%`;
-  elements.currentHighLow.textContent = `${Math.round(weather.main.temp_max)} / ${Math.round(weather.main.temp_min)}${unitSymbol()}`;
+  elements.currentHighLow.textContent = `${Math.round(weather.main.temp_max)}° / ${Math.round(weather.main.temp_min)}°`;
 
   const windUnit = state.units === "metric" ? "m/s" : "mph";
   elements.currentWind.textContent = `${Math.round(weather.wind.speed)} ${windUnit}`;
@@ -704,63 +408,58 @@ const updateCurrentWeather = (weather, forecastFirstEntry) => {
   elements.currentIcon.src = `https://openweathermap.org/img/wn/${condition.icon}@2x.png`;
   elements.currentIcon.alt = condition.main;
 
-  elements.currentTime.textContent = `Local time: ${formatInTimezone(
-    weather.dt,
-    weather.timezone,
-    {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }
-  )} (${formatOffset(weather.timezone)})`;
+  elements.currentTime.textContent = `Local time: ${formatTime(weather.dt, weather.timezone, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  })} (${formatOffset(weather.timezone)})`;
 
   elements.detailPressure.textContent = `${weather.main.pressure} hPa`;
   elements.detailClouds.textContent = `${weather.clouds.all}%`;
-  elements.detailSunrise.textContent = formatInTimezone(weather.sys.sunrise, weather.timezone, {
+  elements.detailSunrise.textContent = formatTime(weather.sys.sunrise, weather.timezone, {
     hour: "numeric",
     minute: "2-digit",
   });
-  elements.detailSunset.textContent = formatInTimezone(weather.sys.sunset, weather.timezone, {
+  elements.detailSunset.textContent = formatTime(weather.sys.sunset, weather.timezone, {
     hour: "numeric",
     minute: "2-digit",
   });
   elements.detailTimezone.textContent = formatOffset(weather.timezone);
 
-  const visibilityValue = weather.visibility || 0;
-  if (state.units === "metric") {
-    elements.detailVisibility.textContent = `${(visibilityValue / 1000).toFixed(1)} km`;
-  } else {
-    elements.detailVisibility.textContent = `${(visibilityValue / 1609.34).toFixed(1)} mi`;
-  }
+  const visibility = weather.visibility || 0;
+  elements.detailVisibility.textContent =
+    state.units === "metric"
+      ? `${(visibility / 1000).toFixed(1)} km`
+      : `${(visibility / 1609.34).toFixed(1)} mi`;
 
   setWeatherGradient(condition.main);
 };
 
-const buildDailyForecast = (forecastList, timezoneOffset) => {
+const buildDailyForecast = (forecastList, offset) => {
   const grouped = new Map();
 
   forecastList.forEach((entry) => {
-    const datePart = getDateKeyInOffset(entry.dt, timezoneOffset);
+    const date = getDateKey(entry.dt, offset);
 
-    if (!grouped.has(datePart)) {
-      grouped.set(datePart, {
-        date: datePart,
+    if (!grouped.has(date)) {
+      grouped.set(date, {
+        date,
         min: entry.main.temp_min,
         max: entry.main.temp_max,
         best: entry,
         pop: entry.pop || 0,
-        timeDiff: Number.POSITIVE_INFINITY,
+        timeDiff: Infinity,
       });
     }
 
-    const day = grouped.get(datePart);
+    const day = grouped.get(date);
     day.min = Math.min(day.min, entry.main.temp_min);
     day.max = Math.max(day.max, entry.main.temp_max);
     day.pop = Math.max(day.pop, entry.pop || 0);
 
-    const diff = Math.abs(getHourInOffset(entry.dt, timezoneOffset) - 12);
+    const diff = Math.abs(getHour(entry.dt, offset) - 12);
     if (diff < day.timeDiff) {
       day.best = entry;
       day.timeDiff = diff;
@@ -770,8 +469,8 @@ const buildDailyForecast = (forecastList, timezoneOffset) => {
   return [...grouped.values()].slice(0, 5);
 };
 
-const updateForecast = (forecast, timezoneOffset) => {
-  const daily = buildDailyForecast(forecast.list, timezoneOffset);
+const updateForecast = (forecast, offset) => {
+  const daily = buildDailyForecast(forecast.list, offset);
   elements.forecastGrid.innerHTML = "";
 
   daily.forEach((day) => {
@@ -785,86 +484,81 @@ const updateForecast = (forecast, timezoneOffset) => {
       day: "numeric",
     }).format(date);
 
-    const condition = day.best.weather[0];
+    const cond = day.best.weather[0];
 
     card.innerHTML = `
       <p class="forecast-date">${label}</p>
-      <img src="https://openweathermap.org/img/wn/${condition.icon}@2x.png" alt="${condition.main}" />
-      <p class="forecast-temp">${Math.round(day.max)}&deg; / ${Math.round(day.min)}&deg;</p>
-      <p class="forecast-meta">${capitalize(condition.description)}</p>
-      <p class="forecast-meta">Rain: ${Math.round(day.pop * 100)}%</p>
+      <img src="https://openweathermap.org/img/wn/${cond.icon}@2x.png" alt="${cond.main}" />
+      <p class="forecast-temp">${Math.round(day.max)}° / ${Math.round(day.min)}°</p>
+      <p class="forecast-meta">${capitalize(cond.description)}</p>
+      <p class="forecast-meta">💧 ${Math.round(day.pop * 100)}%</p>
     `;
 
     elements.forecastGrid.appendChild(card);
   });
 };
 
-const updateHourly = (forecast, timezoneOffset) => {
+const updateHourly = (forecast, offset) => {
   const entries = forecast.list.slice(0, 8);
   elements.hourlyStrip.innerHTML = "";
 
   entries.forEach((entry) => {
-    const hourCard = document.createElement("article");
-    hourCard.className = "hour-card";
+    const card = document.createElement("article");
+    card.className = "hour-card";
 
-    hourCard.innerHTML = `
-      <p class="hour-time">${new Intl.DateTimeFormat(undefined, {
-        hour: "numeric",
-        minute: "2-digit",
-      }).format(new Date((entry.dt + timezoneOffset) * 1000))}</p>
+    const timeStr = new Intl.DateTimeFormat(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date((entry.dt + offset) * 1000));
+
+    card.innerHTML = `
+      <p class="hour-time">${timeStr}</p>
       <img src="https://openweathermap.org/img/wn/${entry.weather[0].icon}.png" alt="${entry.weather[0].main}" />
       <p class="hour-temp">${Math.round(entry.main.temp)}${unitSymbol()}</p>
-      <p class="hour-rain">Rain ${Math.round((entry.pop || 0) * 100)}%</p>
+      <p class="hour-rain">💧 ${Math.round((entry.pop || 0) * 100)}%</p>
     `;
 
-    elements.hourlyStrip.appendChild(hourCard);
+    elements.hourlyStrip.appendChild(card);
   });
 };
 
 const updateAQI = (aqiResponse) => {
   const aqi = aqiResponse?.list?.[0]?.main?.aqi;
-  if (!aqi || !AQI_MAP[aqi]) {
+
+  if (!aqi || !AQI_LEVELS[aqi]) {
     elements.aqiValue.textContent = "--";
     elements.aqiLabel.textContent = "Unavailable";
-    elements.aqiAdvice.textContent = "Air quality data is not available for this location.";
+    elements.aqiAdvice.textContent = "Air quality data unavailable for this location.";
     return;
   }
 
-  const mapped = AQI_MAP[aqi];
-  elements.aqiValue.textContent = String(aqi);
-  elements.aqiLabel.textContent = mapped.label;
-  elements.aqiAdvice.textContent = mapped.advice;
+  const level = AQI_LEVELS[aqi];
+  elements.aqiValue.textContent = aqi;
+  elements.aqiLabel.textContent = level.label;
+  elements.aqiAdvice.textContent = level.advice;
 };
 
-const updateChart = (forecast, timezoneOffset) => {
-  if (typeof Chart === "undefined") {
-    return;
-  }
+const updateChart = (forecast, offset) => {
+  if (typeof Chart === "undefined") return;
 
   const entries = forecast.list.slice(0, 8);
   const labels = entries.map((entry) =>
     new Intl.DateTimeFormat(undefined, {
       hour: "numeric",
       minute: "2-digit",
-    }).format(new Date((entry.dt + timezoneOffset) * 1000))
+    }).format(new Date((entry.dt + offset) * 1000))
   );
 
-  const tempData = entries.map((entry) => entry.main.temp);
-  const rainData = entries.map((entry) => Math.round((entry.pop || 0) * 100));
+  const temps = entries.map((entry) => entry.main.temp);
+  const rains = entries.map((entry) => Math.round((entry.pop || 0) * 100));
 
-  const textColor = getComputedStyle(document.documentElement)
-    .getPropertyValue("--text-muted")
-    .trim();
-  const accentColor = getComputedStyle(document.documentElement)
-    .getPropertyValue("--accent")
-    .trim() || "#7dd3fc";
-  const secondaryColor = getComputedStyle(document.documentElement)
-    .getPropertyValue("--secondary")
-    .trim() || "#f472b6";
+  const isDark = document.documentElement.dataset.theme === "dark";
+  const accentColor = isDark ? "#38bdf8" : "#0369a1";
+  const rainColor = isDark ? "#f472b6" : "#ec4899";
+  const textColor = isDark ? "#cbd5e1" : "#64748b";
+  const gridColor = isDark ? "rgba(71, 85, 105, 0.3)" : "rgba(148, 163, 184, 0.2)";
 
-  if (state.chart) {
-    state.chart.destroy();
-  }
+  if (state.chart) state.chart.destroy();
 
   state.chart = new Chart(elements.tempChart, {
     type: "line",
@@ -873,87 +567,128 @@ const updateChart = (forecast, timezoneOffset) => {
       datasets: [
         {
           label: `Temperature (${unitSymbol()})`,
-          data: tempData,
+          data: temps,
           borderColor: accentColor,
-          backgroundColor: "rgba(125, 211, 252, 0.2)",
+          backgroundColor: isDark ? "rgba(56, 189, 248, 0.15)" : "rgba(3, 105, 161, 0.1)",
           yAxisID: "y",
-          tension: 0.35,
+          tension: 0.4,
           fill: true,
-          pointRadius: 3,
+          pointRadius: 4,
+          pointBackgroundColor: accentColor,
+          pointBorderColor: "#fff",
+          pointBorderWidth: 2,
         },
         {
           label: "Rain Chance (%)",
-          data: rainData,
-          borderColor: secondaryColor,
-          backgroundColor: "rgba(244, 114, 182, 0.15)",
+          data: rains,
+          borderColor: rainColor,
+          backgroundColor: "transparent",
           yAxisID: "y1",
-          tension: 0.35,
+          tension: 0.4,
           fill: false,
-          pointRadius: 2,
+          pointRadius: 3,
+          pointBackgroundColor: rainColor,
+          borderDash: [5, 5],
         },
       ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      interaction: {
-        mode: "index",
-        intersect: false,
-      },
+      interaction: { mode: "index", intersect: false },
       scales: {
         y: {
           beginAtZero: false,
-          ticks: {
-            color: textColor,
-          },
-          grid: {
-            color: "rgba(148, 163, 184, 0.2)",
-          },
+          ticks: { color: textColor },
+          grid: { color: gridColor },
         },
         y1: {
           beginAtZero: true,
           position: "right",
           max: 100,
-          ticks: {
-            color: textColor,
-          },
-          grid: {
-            drawOnChartArea: false,
-          },
+          ticks: { color: textColor },
+          grid: { drawOnChartArea: false },
         },
         x: {
-          ticks: {
-            color: textColor,
-          },
-          grid: {
-            color: "rgba(148, 163, 184, 0.14)",
-          },
+          ticks: { color: textColor },
+          grid: { color: gridColor },
         },
       },
       plugins: {
-        legend: {
-          labels: {
-            color: textColor,
-          },
-        },
+        legend: { labels: { color: textColor, padding: 15 } },
       },
     },
   });
 };
 
-const updateStatusForSuccess = (weather) => {
-  setStatus(
-    `Updated ${formatInTimezone(weather.dt, weather.timezone, {
-      hour: "numeric",
-      minute: "2-digit",
-      weekday: "short",
-    })} (${formatOffset(weather.timezone)})`
-  );
+// ==================== History & Favorites ====================
+
+const renderChipList = (container, items, emptyText, onClick) => {
+  container.innerHTML = "";
+
+  if (!items.length) {
+    const empty = document.createElement("span");
+    empty.className = "chip empty";
+    empty.textContent = emptyText;
+    container.appendChild(empty);
+    return;
+  }
+
+  items.forEach((item) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "chip";
+    btn.textContent = item;
+    btn.addEventListener("click", () => onClick(item));
+    container.appendChild(btn);
+  });
 };
 
+const renderHistory = () => {
+  const history = getStoredList(STORAGE_KEYS.history);
+  renderChipList(elements.historyList, history, "No recent searches", (city) => {
+    loadWeatherByCity(city, { addToHistory: false });
+  });
+  elements.clearHistoryBtn.disabled = history.length === 0;
+};
+
+const renderFavorites = () => {
+  const favs = getStoredList(STORAGE_KEYS.favorites);
+  renderChipList(elements.favoritesList, favs, "No favorites yet", (city) => {
+    loadWeatherByCity(city, { addToHistory: false });
+  });
+  elements.clearFavoritesBtn.disabled = favs.length === 0;
+
+  const isFav = favs.includes(state.weatherLabel);
+  elements.favoriteBtn.classList.toggle("active", isFav);
+  elements.favoriteBtn.textContent = isFav ? "★" : "☆";
+};
+
+const saveHistory = (label) => {
+  const history = getStoredList(STORAGE_KEYS.history);
+  const next = [label, ...history.filter((c) => c !== label)].slice(0, 10);
+  setStoredList(STORAGE_KEYS.history, next);
+  renderHistory();
+};
+
+const toggleFavorite = () => {
+  if (!state.weatherLabel) return;
+
+  const favs = getStoredList(STORAGE_KEYS.favorites);
+  const exists = favs.includes(state.weatherLabel);
+  const next = exists
+    ? favs.filter((item) => item !== state.weatherLabel)
+    : [state.weatherLabel, ...favs].slice(0, 10);
+
+  setStoredList(STORAGE_KEYS.favorites, next);
+  renderFavorites();
+};
+
+// ==================== Main Weather Loading ====================
+
 const loadWeatherByCoords = async (lat, lon, options = {}) => {
-  if (!API_KEY || API_KEY === "YOUR_OPENWEATHER_KEY") {
-    setError("Add your OpenWeather API key in app.js to continue.");
+  if (!API_KEY) {
+    setError("Add your OpenWeather API key in app.js");
     return;
   }
 
@@ -967,7 +702,7 @@ const loadWeatherByCoords = async (lat, lon, options = {}) => {
     const [current, forecast, aqi] = await Promise.all([
       getCurrentWeather(lat, lon),
       getForecast(lat, lon),
-      getAirQuality(lat, lon).catch(() => null),
+      getAirQuality(lat, lon),
     ]);
 
     state.current = { current, forecast, aqi };
@@ -979,21 +714,23 @@ const loadWeatherByCoords = async (lat, lon, options = {}) => {
     updateHourly(forecast, current.timezone);
     updateAQI(aqi);
     updateChart(forecast, current.timezone);
-    updateStatusForSuccess(current);
 
-    if (addToHistory) {
-      saveHistory(state.weatherLabel);
-    }
+    setStatus(
+      `Updated ${formatTime(current.dt, current.timezone, {
+        hour: "numeric",
+        minute: "2-digit",
+        weekday: "short",
+      })} (${formatOffset(current.timezone)})`
+    );
 
-    saveLastPlace({
-      lat,
-      lon,
-      cityLabel: state.weatherLabel,
-    });
-
+    if (addToHistory) saveHistory(state.weatherLabel);
     renderFavorites();
+    localStorage.setItem(
+      STORAGE_KEYS.lastPlace,
+      JSON.stringify({ lat, lon, cityLabel: state.weatherLabel })
+    );
   } catch (error) {
-    setError(error.message || "Something went wrong while loading weather.");
+    setError(error.message || "Weather loading failed.");
     setStatus("");
   } finally {
     setLoading(false);
@@ -1020,21 +757,7 @@ const loadWeatherByCity = async (cityInput, options = {}) => {
   }
 };
 
-const toggleFavorite = () => {
-  if (!state.weatherLabel) {
-    return;
-  }
-
-  const favorites = getStoredList(STORAGE_KEYS.favorites);
-  const exists = favorites.includes(state.weatherLabel);
-
-  const next = exists
-    ? favorites.filter((item) => item !== state.weatherLabel)
-    : [state.weatherLabel, ...favorites].slice(0, 10);
-
-  setStoredList(STORAGE_KEYS.favorites, next);
-  renderFavorites();
-};
+// ==================== Event Handlers ====================
 
 const handleSearch = async (event) => {
   event.preventDefault();
@@ -1046,53 +769,41 @@ const handleSearch = async (event) => {
   }
 
   hideSuggestions();
-  await runAction("search", async () => {
-    await loadWeatherByCity(city, { addToHistory: true });
-  });
+  await loadWeatherByCity(city, { addToHistory: true });
 };
 
-const handleLocate = () => {
+const handleLocate = async () => {
   if (!navigator.geolocation) {
-    setError("Geolocation is not supported in this browser.");
+    setError("Geolocation not supported in your browser.");
     return;
   }
 
   setStatus("Getting your location...");
   clearError();
 
-  runAction("locate", () =>
-    new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          await loadWeatherByCoords(position.coords.latitude, position.coords.longitude, {
-            addToHistory: true,
-          });
-          resolve();
-        },
-        () => {
-          setError("Location access was denied. Search by city instead.");
-          setStatus("");
-          resolve();
-        },
-        {
-          timeout: 10000,
-        }
-      );
-    })
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      await loadWeatherByCoords(position.coords.latitude, position.coords.longitude, {
+        addToHistory: true,
+      });
+    },
+    () => {
+      setError("Location access denied. Search by city instead.");
+      setStatus("");
+    },
+    { timeout: 10000 }
   );
 };
 
 const handleRefresh = async () => {
   if (!state.currentCoords) {
-    setError("Search for a city first, then refresh.");
+    setError("Search for a city first.");
     return;
   }
 
-  await runAction("refresh", async () => {
-    await loadWeatherByCoords(state.currentCoords.lat, state.currentCoords.lon, {
-      addToHistory: false,
-      cityLabel: state.weatherLabel,
-    });
+  await loadWeatherByCoords(state.currentCoords.lat, state.currentCoords.lon, {
+    addToHistory: false,
+    cityLabel: state.weatherLabel,
   });
 };
 
@@ -1106,73 +817,72 @@ const handleInputFocus = () => {
   scheduleSuggestions(elements.input.value.trim());
 };
 
-const handleInputKeydown = async (event) => {
-  const hasSuggestions = state.suggestions.length > 0 && elements.suggestionsList.classList.contains("open");
-  if (!hasSuggestions) {
-    if (event.key === "Escape") {
-      hideSuggestions();
-    }
+const handleInputKeydown = (e) => {
+  const isSuggestionsOpen = state.suggestions.length > 0 && elements.suggestionsList.classList.contains("open");
+
+  if (!isSuggestionsOpen) {
+    if (e.key === "Escape") hideSuggestions();
     return;
   }
 
-  const lastIndex = state.suggestions.length - 1;
+  const lastIdx = state.suggestions.length - 1;
 
-  if (event.key === "ArrowDown") {
-    event.preventDefault();
-    const nextIndex =
-      state.activeSuggestionIndex >= lastIndex ? 0 : state.activeSuggestionIndex + 1;
-    setActiveSuggestion(nextIndex);
-    return;
-  }
-
-  if (event.key === "ArrowUp") {
-    event.preventDefault();
-    const nextIndex =
-      state.activeSuggestionIndex <= 0 ? lastIndex : state.activeSuggestionIndex - 1;
-    setActiveSuggestion(nextIndex);
-    return;
-  }
-
-  if (event.key === "Enter" && state.activeSuggestionIndex >= 0) {
-    event.preventDefault();
-    await applySuggestion(state.activeSuggestionIndex);
-    return;
-  }
-
-  if (event.key === "Escape") {
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    const nextIdx = state.activeSuggestionIndex >= lastIdx ? 0 : state.activeSuggestionIndex + 1;
+    state.activeSuggestionIndex = nextIdx;
+    renderSuggestions();
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    const nextIdx = state.activeSuggestionIndex <= 0 ? lastIdx : state.activeSuggestionIndex - 1;
+    state.activeSuggestionIndex = nextIdx;
+    renderSuggestions();
+  } else if (e.key === "Enter" && state.activeSuggestionIndex >= 0) {
+    e.preventDefault();
+    applySuggestion(state.activeSuggestionIndex);
+  } else if (e.key === "Escape") {
     hideSuggestions();
   }
 };
 
-const handleDocumentClick = (event) => {
-  if (!elements.form.contains(event.target)) {
-    hideSuggestions();
-  }
+const handleDocumentClick = (e) => {
+  if (!elements.form.contains(e.target)) hideSuggestions();
 };
 
 const handleClearHistory = () => {
   setStoredList(STORAGE_KEYS.history, []);
   renderHistory();
   setStatus("Recent searches cleared.");
-  scheduleSuggestions(elements.input.value.trim());
 };
 
 const handleClearFavorites = () => {
   setStoredList(STORAGE_KEYS.favorites, []);
   renderFavorites();
   setStatus("Favorites cleared.");
-  scheduleSuggestions(elements.input.value.trim());
 };
 
 const toggleTheme = () => {
-  const current = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-  setTheme(current === "dark" ? "light" : "dark");
+  const current = document.documentElement.dataset.theme || "light";
+  const next = current === "dark" ? "light" : "dark";
+
+  document.documentElement.dataset.theme = next;
+  const icon = next === "dark" ? "🌙" : "☀️";
+  const text = next === "dark" ? "Dark" : "Light";
+  elements.themeToggle.innerHTML = `<span class="icon">${icon}</span><span class="text">${text}</span>`;
+  localStorage.setItem(STORAGE_KEYS.theme, next);
+
+  if (state.current?.forecast) {
+    updateChart(state.current.forecast, state.current.current.timezone);
+  }
 };
 
 const toggleUnits = () => {
   state.units = state.units === "metric" ? "imperial" : "metric";
   localStorage.setItem(STORAGE_KEYS.units, state.units);
-  setUnitButton();
+
+  elements.unitToggle.innerHTML = `<span class="icon">${state.units === "metric" ? "°C" : "°F"}</span><span class="text">${state.units === "metric" ? "Celsius" : "Fahrenheit"}</span>`;
+  elements.tempUnitSymbol.textContent = unitSymbol();
+  elements.feelsUnitSymbol.textContent = unitSymbol();
 
   if (state.currentCoords) {
     loadWeatherByCoords(state.currentCoords.lat, state.currentCoords.lon, {
@@ -1182,34 +892,79 @@ const toggleUnits = () => {
   }
 };
 
-const init = () => {
-  setUnitButton();
+// ==================== Modal Management ====================
+
+const showModal = (title, body) => {
+  elements.detailModalTitle.textContent = title;
+  elements.detailModalBody.innerHTML = body;
+  elements.detailModal.style.display = "flex";
+};
+
+const hideModal = () => {
+  elements.detailModal.style.display = "none";
+};
+
+elements.closeDetailModal.addEventListener("click", hideModal);
+elements.detailModal.addEventListener("click", (e) => {
+  if (e.target === elements.detailModal) hideModal();
+});
+
+// Add modal interaction for cards
+document.addEventListener("click", (e) => {
+  const summaryItem = e.target.closest(".summary-item");
+  if (summaryItem) {
+    const label = summaryItem.querySelector(".label")?.textContent?.trim();
+    const tooltips = {
+      "High / Low": "Highest and lowest temperature today. Helps you prepare for the full range of conditions.",
+      "Humidity": "Amount of water vapor in the air. High humidity can feel uncomfortable.",
+      "Wind": "Wind speed and direction. Important for outdoor activities.",
+      "Rain Chance": "Probability of precipitation. Higher % means more likely rain.",
+    };
+    if (tooltips[label]) showModal(label, `<p>${tooltips[label]}</p>`);
+  }
+});
+
+// ==================== Initialization ====================
+
+const init = async () => {
+  // Set initial theme
+  const theme = localStorage.getItem(STORAGE_KEYS.theme) || "light";
+  document.documentElement.dataset.theme = theme;
+  const themeIcon = theme === "dark" ? "🌙" : "☀️";
+  const themeText = theme === "dark" ? "Dark" : "Light";
+  elements.themeToggle.innerHTML = `<span class="icon">${themeIcon}</span><span class="text">${themeText}</span>`;
+
+  // Set unit toggle
+  const unitText = state.units === "metric" ? "Celsius" : "Fahrenheit";
+  const unitSymb = state.units === "metric" ? "°C" : "°F";
+  elements.unitToggle.innerHTML = `<span class="icon">${unitSymb}</span><span class="text">${unitText}</span>`;
+
   updateSearchButtonState();
-
-  const initialTheme = localStorage.getItem(STORAGE_KEYS.theme) || "light";
-  setTheme(initialTheme);
-
   renderHistory();
   renderFavorites();
 
+  // Load last place or default
   const lastPlaceRaw = localStorage.getItem(STORAGE_KEYS.lastPlace);
   if (lastPlaceRaw) {
     try {
       const lastPlace = JSON.parse(lastPlaceRaw);
       if (lastPlace?.lat && lastPlace?.lon) {
-        loadWeatherByCoords(lastPlace.lat, lastPlace.lon, {
+        await loadWeatherByCoords(lastPlace.lat, lastPlace.lon, {
           addToHistory: false,
           cityLabel: lastPlace.cityLabel || null,
         });
         return;
       }
     } catch {
-      // Ignore invalid storage payload.
+      // Fall back to default
     }
   }
 
-  loadWeatherByCity("New York", { addToHistory: false });
+  // Default city
+  await loadWeatherByCity("New York", { addToHistory: false });
 };
+
+// ==================== Event Listeners ====================
 
 elements.form.addEventListener("submit", handleSearch);
 elements.input.addEventListener("input", handleInputChange);
@@ -1225,4 +980,3 @@ elements.favoriteBtn.addEventListener("click", toggleFavorite);
 document.addEventListener("click", handleDocumentClick);
 
 init();
-
