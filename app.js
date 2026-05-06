@@ -26,6 +26,9 @@ const elements = {
   refreshBtn: document.getElementById("refreshBtn"),
   unitToggle: document.getElementById("unitToggle"),
   themeToggle: document.getElementById("themeToggle"),
+  themeWeatherLabel: document.getElementById("themeWeatherLabel"),
+  coordLabel: document.getElementById("coordLabel"),
+  updatedLabel: document.getElementById("updatedLabel"),
   historyList: document.getElementById("historyList"),
   favoritesList: document.getElementById("favoritesList"),
   favoriteBtn: document.getElementById("favoriteBtn"),
@@ -47,6 +50,9 @@ const elements = {
   detailSunrise: document.getElementById("detailSunrise"),
   detailSunset: document.getElementById("detailSunset"),
   detailTimezone: document.getElementById("detailTimezone"),
+  detailWindDirection: document.getElementById("detailWindDirection"),
+  detailObserved: document.getElementById("detailObserved"),
+  weatherNarrative: document.getElementById("weatherNarrative"),
   aqiValue: document.getElementById("aqiValue"),
   aqiLabel: document.getElementById("aqiLabel"),
   aqiAdvice: document.getElementById("aqiAdvice"),
@@ -70,6 +76,7 @@ const state = {
   activeSuggestionIndex: -1,
   suggestionDebounce: null,
   suggestionToken: 0,
+  refreshTimer: null,
 };
 
 const POPULAR_CITIES = [
@@ -91,15 +98,22 @@ const AQI_LEVELS = {
   5: { label: "Very Poor", advice: "Avoid outdoor activities and wear N95 masks if necessary." },
 };
 
-const WEATHER_GRADIENTS = {
-  clear: { start: "#f0f7ff", end: "#bfdbfe" },
-  clouds: { start: "#f1f5f9", end: "#cbd5e1" },
-  rain: { start: "#e0f2fe", end: "#a5f3fc" },
-  drizzle: { start: "#eff6ff", end: "#bfdbfe" },
-  thunderstorm: { start: "#1e1b4b", end: "#3f3f46" },
-  snow: { start: "#f8fafc", end: "#e2e8f0" },
-  mist: { start: "#e5e7eb", end: "#d1d5db" },
-  default: { start: "#f0f7ff", end: "#dbeafe" },
+const WEATHER_THEME_KEYS = {
+  clear: "clear",
+  clouds: "clouds",
+  rain: "rain",
+  drizzle: "drizzle",
+  thunderstorm: "thunderstorm",
+  snow: "snow",
+  mist: "mist",
+  smoke: "mist",
+  haze: "mist",
+  dust: "mist",
+  fog: "mist",
+  sand: "mist",
+  ash: "mist",
+  squall: "rain",
+  tornado: "thunderstorm",
 };
 
 // ==================== Utility Functions ====================
@@ -148,6 +162,30 @@ const getHour = (unixSeconds, offsetSeconds) => {
   return shifted.getUTCHours();
 };
 
+const getWeatherThemeKey = (mainCondition = "") =>
+  WEATHER_THEME_KEYS[mainCondition.toLowerCase()] || "default";
+
+const windDirection = (degrees) => {
+  if (typeof degrees !== "number") return "--";
+  const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  const index = Math.round(degrees / 45) % directions.length;
+  return `${directions[index]} ${degrees}°`;
+};
+
+const buildWeatherNarrative = (weather, forecastFirstEntry) => {
+  const condition = weather.weather[0];
+  const rainChance = Math.round((forecastFirstEntry?.pop || 0) * 100);
+  const windUnit = state.units === "metric" ? "m/s" : "mph";
+  const visibility =
+    state.units === "metric"
+      ? `${((weather.visibility || 0) / 1000).toFixed(1)} km`
+      : `${((weather.visibility || 0) / 1609.34).toFixed(1)} mi`;
+
+  return `${capitalize(condition.description)} in ${weather.name} with ${weather.main.humidity}% humidity, ${Math.round(
+    weather.wind.speed
+  )} ${windUnit} wind, ${visibility} visibility, and a ${rainChance}% rain chance in the next forecast window.`;
+};
+
 // ==================== UI State Management ====================
 
 const setStatus = (msg) => {
@@ -164,6 +202,18 @@ const clearError = () => {
 
 const setLoading = (loading) => {
   elements.app.classList.toggle("is-loading", loading);
+};
+
+const scheduleAutoRefresh = () => {
+  clearInterval(state.refreshTimer);
+  state.refreshTimer = setInterval(() => {
+    if (!state.currentCoords || document.hidden) return;
+    loadWeatherByCoords(state.currentCoords.lat, state.currentCoords.lon, {
+      addToHistory: false,
+      cityLabel: state.weatherLabel,
+      silent: true,
+    });
+  }, 10 * 60 * 1000);
 };
 
 const updateSearchButtonState = () => {
@@ -249,6 +299,8 @@ const renderSuggestions = () => {
     btn.setAttribute("role", "option");
     btn.dataset.index = idx;
 
+    if (idx === state.activeSuggestionIndex) btn.classList.add("active");
+
     btn.innerHTML = `<span class="suggestion-main">${item.label}</span><span class="suggestion-sub">${item.source}</span>`;
     btn.addEventListener("click", () => applySuggestion(idx));
 
@@ -258,7 +310,6 @@ const renderSuggestions = () => {
 
   list.classList.add("open");
   elements.input.setAttribute("aria-expanded", "true");
-  state.activeSuggestionIndex = -1;
 };
 
 const hideSuggestions = () => {
@@ -274,6 +325,7 @@ const refreshSuggestions = async (query) => {
 
   if (!query) {
     state.suggestions = local.slice(0, 6);
+    state.activeSuggestionIndex = -1;
     renderSuggestions();
     return;
   }
@@ -292,6 +344,7 @@ const refreshSuggestions = async (query) => {
     })
     .slice(0, 8);
 
+  state.activeSuggestionIndex = -1;
   renderSuggestions();
 };
 
@@ -385,14 +438,146 @@ const getAirQuality = (lat, lon) =>
 // ==================== Weather Display Updates ====================
 
 const setWeatherGradient = (mainCondition) => {
-  const condition = mainCondition.toLowerCase();
-  const gradient = WEATHER_GRADIENTS[condition] || WEATHER_GRADIENTS.default;
-  document.documentElement.style.setProperty("--sky-start", gradient.start);
-  document.documentElement.style.setProperty("--sky-end", gradient.end);
+  document.body.dataset.weather = getWeatherThemeKey(mainCondition);
+};
+
+// ==================== Weather Effects ====================
+
+const createWeatherEffects = (weatherCondition) => {
+  // Remove existing effects
+  const existingEffects = document.querySelector(".weather-effects");
+  if (existingEffects) {
+    existingEffects.remove();
+  }
+
+  const effectsContainer = document.createElement("div");
+  effectsContainer.className = "weather-effects";
+
+  const condition = weatherCondition.toLowerCase();
+
+  // Clear all weather classes
+  document.body.classList.remove("windy-weather", "storm-weather");
+
+  if (condition.includes("snow")) {
+    createSnowEffect(effectsContainer);
+  } else if (condition.includes("rain")) {
+    createRainEffect(effectsContainer);
+  } else if (condition.includes("thunderstorm") || condition.includes("thunder")) {
+    createStormEffect(effectsContainer);
+  } else if (condition.includes("wind")) {
+    createWindEffect(effectsContainer);
+  } else if (condition.includes("clear") || condition.includes("sunny")) {
+    createSunEffect(effectsContainer);
+  } else if (condition.includes("cloud")) {
+    createCloudEffect(effectsContainer);
+  }
+
+  document.body.appendChild(effectsContainer);
+};
+
+const createSnowEffect = (container) => {
+  // Create 30 snowflakes
+  for (let i = 0; i < 30; i++) {
+    const snowflake = document.createElement("div");
+    snowflake.className = "snowflake";
+    snowflake.textContent = "❄";
+    snowflake.style.left = Math.random() * 100 + "%";
+    snowflake.style.animationDuration = (5 + Math.random() * 5) + "s";
+    snowflake.style.animationDelay = Math.random() * 2 + "s";
+    snowflake.style.fontSize = (0.5 + Math.random() * 1.5) + "em";
+    snowflake.style.opacity = 0.6 + Math.random() * 0.4;
+    container.appendChild(snowflake);
+  }
+};
+
+const createRainEffect = (container) => {
+  // Create 60 raindrops
+  for (let i = 0; i < 60; i++) {
+    const raindrop = document.createElement("div");
+    raindrop.className = "raindrop";
+    raindrop.style.left = Math.random() * 100 + "%";
+    raindrop.style.animationDuration = (0.5 + Math.random() * 0.5) + "s";
+    raindrop.style.animationDelay = Math.random() * 2 + "s";
+    raindrop.style.opacity = 0.6 + Math.random() * 0.4;
+    container.appendChild(raindrop);
+  }
+};
+
+const createStormEffect = (container) => {
+  // Add lightning flash effect
+  document.body.classList.add("storm-weather");
+
+  // Create rain with storm intensity
+  for (let i = 0; i < 100; i++) {
+    const raindrop = document.createElement("div");
+    raindrop.className = "raindrop";
+    raindrop.style.left = Math.random() * 100 + "%";
+    raindrop.style.animationDuration = (0.3 + Math.random() * 0.3) + "s";
+    raindrop.style.animationDelay = Math.random() * 1 + "s";
+    raindrop.style.opacity = 0.8;
+    container.appendChild(raindrop);
+  }
+};
+
+const createWindEffect = (container) => {
+  // Add wind sway effect
+  document.body.classList.add("windy-weather");
+
+  // Create a few cloud elements that sway
+  const cloudSvg = `<svg style="position: fixed; top: 100px; left: -200px; width: 300px; height: 80px; fill: rgba(255,255,255,0.3); pointer-events: none; z-index: -1;" viewBox="0 0 300 80">
+    <path d="M 150 50 Q 80 20 40 40 Q 20 50 30 70 L 270 70 Q 280 50 250 40 Q 210 10 150 50" />
+  </svg>`;
+
+  for (let i = 0; i < 3; i++) {
+    const cloudDiv = document.createElement("div");
+    cloudDiv.innerHTML = cloudSvg;
+    cloudDiv.style.animation = `cloud-movement ${15 + i * 5}s linear infinite`;
+    cloudDiv.style.top = (50 + i * 60) + "px";
+    container.appendChild(cloudDiv);
+  }
+};
+
+const createSunEffect = (container) => {
+  // Create sun circle
+  const sunCircle = document.createElement("div");
+  sunCircle.className = "sun-circle";
+  container.appendChild(sunCircle);
+
+  // Create sun rays
+  const rayAngles = [-30, -15, 0, 15, 30];
+  for (let i = 0; i < 5; i++) {
+    const ray = document.createElement("div");
+    ray.className = "sun-ray";
+    ray.style.transform = `translateX(-50%) rotate(${rayAngles[i]}deg)`;
+    container.appendChild(ray);
+  }
+};
+
+const createCloudEffect = (container) => {
+  // Create moving cloud elements
+  const cloudSvg = `<svg style="position: fixed; top: 80px; width: 300px; height: 80px; fill: rgba(255,255,255,0.4); pointer-events: none; z-index: -1;" viewBox="0 0 300 80">
+    <path d="M 150 50 Q 80 20 40 40 Q 20 50 30 70 L 270 70 Q 280 50 250 40 Q 210 10 150 50" />
+  </svg>`;
+
+  for (let i = 0; i < 2; i++) {
+    const cloudDiv = document.createElement("div");
+    cloudDiv.innerHTML = cloudSvg;
+    cloudDiv.style.animation = `cloud-movement ${20 + i * 10}s linear infinite`;
+    cloudDiv.style.top = (60 + i * 100) + "px";
+    cloudDiv.style.left = (i * 50) + "%";
+    container.appendChild(cloudDiv);
+  }
+
+  // Keep default cloudy background
 };
 
 const updateCurrentWeather = (weather, forecastFirstEntry) => {
   const condition = weather.weather[0];
+  const rainChance = Math.round((forecastFirstEntry?.pop || 0) * 100);
+  const observedTime = formatTime(weather.dt, weather.timezone, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
   elements.currentCity.textContent = `${weather.name}, ${weather.sys.country}`;
   elements.currentCondition.textContent = capitalize(condition.description);
@@ -403,7 +588,7 @@ const updateCurrentWeather = (weather, forecastFirstEntry) => {
 
   const windUnit = state.units === "metric" ? "m/s" : "mph";
   elements.currentWind.textContent = `${Math.round(weather.wind.speed)} ${windUnit}`;
-  elements.currentRainChance.textContent = `${Math.round((forecastFirstEntry?.pop || 0) * 100)}%`;
+  elements.currentRainChance.textContent = `${rainChance}%`;
 
   elements.currentIcon.src = `https://openweathermap.org/img/wn/${condition.icon}@2x.png`;
   elements.currentIcon.alt = condition.main;
@@ -427,6 +612,12 @@ const updateCurrentWeather = (weather, forecastFirstEntry) => {
     minute: "2-digit",
   });
   elements.detailTimezone.textContent = formatOffset(weather.timezone);
+  elements.detailWindDirection.textContent = windDirection(weather.wind.deg);
+  elements.detailObserved.textContent = observedTime;
+  elements.themeWeatherLabel.textContent = capitalize(condition.description);
+  elements.coordLabel.textContent = `${weather.coord.lat.toFixed(2)}, ${weather.coord.lon.toFixed(2)}`;
+  elements.updatedLabel.textContent = observedTime;
+  elements.weatherNarrative.textContent = buildWeatherNarrative(weather, forecastFirstEntry);
 
   const visibility = weather.visibility || 0;
   elements.detailVisibility.textContent =
@@ -435,6 +626,7 @@ const updateCurrentWeather = (weather, forecastFirstEntry) => {
       : `${(visibility / 1609.34).toFixed(1)} mi`;
 
   setWeatherGradient(condition.main);
+  createWeatherEffects(condition.main);
 };
 
 const buildDailyForecast = (forecastList, offset) => {
@@ -491,7 +683,7 @@ const updateForecast = (forecast, offset) => {
       <img src="https://openweathermap.org/img/wn/${cond.icon}@2x.png" alt="${cond.main}" />
       <p class="forecast-temp">${Math.round(day.max)}° / ${Math.round(day.min)}°</p>
       <p class="forecast-meta">${capitalize(cond.description)}</p>
-      <p class="forecast-meta">💧 ${Math.round(day.pop * 100)}%</p>
+      <p class="forecast-meta">Rain ${Math.round(day.pop * 100)}%</p>
     `;
 
     elements.forecastGrid.appendChild(card);
@@ -515,7 +707,7 @@ const updateHourly = (forecast, offset) => {
       <p class="hour-time">${timeStr}</p>
       <img src="https://openweathermap.org/img/wn/${entry.weather[0].icon}.png" alt="${entry.weather[0].main}" />
       <p class="hour-temp">${Math.round(entry.main.temp)}${unitSymbol()}</p>
-      <p class="hour-rain">💧 ${Math.round((entry.pop || 0) * 100)}%</p>
+      <p class="hour-rain">Rain ${Math.round((entry.pop || 0) * 100)}%</p>
     `;
 
     elements.hourlyStrip.appendChild(card);
@@ -527,6 +719,7 @@ const updateAQI = (aqiResponse) => {
 
   if (!aqi || !AQI_LEVELS[aqi]) {
     elements.aqiValue.textContent = "--";
+    elements.aqiValue.style.setProperty("--aqi-progress", 0);
     elements.aqiLabel.textContent = "Unavailable";
     elements.aqiAdvice.textContent = "Air quality data unavailable for this location.";
     return;
@@ -534,6 +727,7 @@ const updateAQI = (aqiResponse) => {
 
   const level = AQI_LEVELS[aqi];
   elements.aqiValue.textContent = aqi;
+  elements.aqiValue.style.setProperty("--aqi-progress", aqi * 20);
   elements.aqiLabel.textContent = level.label;
   elements.aqiAdvice.textContent = level.advice;
 };
@@ -692,11 +886,11 @@ const loadWeatherByCoords = async (lat, lon, options = {}) => {
     return;
   }
 
-  const { addToHistory = true, cityLabel = null } = options;
+  const { addToHistory = true, cityLabel = null, silent = false } = options;
 
-  setLoading(true);
+  if (!silent) setLoading(true);
   clearError();
-  setStatus("Loading weather data...");
+  if (!silent) setStatus("Loading weather data...");
 
   try {
     const [current, forecast, aqi] = await Promise.all([
@@ -725,15 +919,18 @@ const loadWeatherByCoords = async (lat, lon, options = {}) => {
 
     if (addToHistory) saveHistory(state.weatherLabel);
     renderFavorites();
+    scheduleAutoRefresh();
     localStorage.setItem(
       STORAGE_KEYS.lastPlace,
       JSON.stringify({ lat, lon, cityLabel: state.weatherLabel })
     );
   } catch (error) {
-    setError(error.message || "Weather loading failed.");
-    setStatus("");
+    if (!silent) {
+      setError(error.message || "Weather loading failed.");
+      setStatus("");
+    }
   } finally {
-    setLoading(false);
+    if (!silent) setLoading(false);
   }
 };
 

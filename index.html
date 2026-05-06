@@ -13,19 +13,36 @@
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
-  <body>
-    <div class="bg-shape bg-shape-a" aria-hidden="true"></div>
-    <div class="bg-shape bg-shape-b" aria-hidden="true"></div>
+  <body data-weather="default">
+    <div class="weather-backdrop" aria-hidden="true">
+      <div class="sky-band sky-band-a"></div>
+      <div class="sky-band sky-band-b"></div>
+      <div class="sky-horizon"></div>
+    </div>
 
     <div class="app" id="app">
       <!-- Header -->
       <header class="panel topbar">
         <div class="topbar-branding">
-          <p class="eyebrow">Live Weather Intelligence</p>
+          <p class="eyebrow live-pill"><span></span> Live Weather Intelligence</p>
           <h1 class="dashboard-title">Atmosphere Desk</h1>
           <p class="subtitle">
             Real-time conditions, forecasts, and air quality insights
           </p>
+          <div class="hero-metrics" aria-label="Live weather summary">
+            <div>
+              <span>Weather</span>
+              <strong id="themeWeatherLabel">Ready</strong>
+            </div>
+            <div>
+              <span>Coordinates</span>
+              <strong id="coordLabel">--</strong>
+            </div>
+            <div>
+              <span>Updated</span>
+              <strong id="updatedLabel">--</strong>
+            </div>
+          </div>
         </div>
         <div class="topbar-actions">
           <button id="unitToggle" class="btn-icon-text" type="button" aria-pressed="false" title="Toggle temperature unit">
@@ -118,7 +135,14 @@
 
           <div class="current-main">
             <div class="temperature-box">
-              <img id="currentIcon" alt="" class="weather-icon-large" />
+              <div class="weather-stage" aria-hidden="true">
+                <div class="stage-sun"></div>
+                <div class="stage-cloud stage-cloud-a"></div>
+                <div class="stage-cloud stage-cloud-b"></div>
+                <div class="stage-rain"></div>
+                <div class="stage-snow"></div>
+                <img id="currentIcon" alt="" class="weather-icon-large" />
+              </div>
               <div class="temp-info">
                 <p class="main-temp">
                   <span id="currentTemp">--</span><span id="tempUnitSymbol">°C</span>
@@ -129,6 +153,9 @@
                 </p>
               </div>
             </div>
+            <p id="weatherNarrative" class="weather-narrative">
+              Search a city to see live conditions and a matching weather theme.
+            </p>
 
             <div class="summary-grid">
               <div class="summary-item" data-tooltip="Highest and lowest temperature today">
@@ -181,6 +208,14 @@
               <p class="detail-label">Timezone</p>
               <p id="detailTimezone" class="detail-value">--</p>
             </article>
+            <article class="detail-card" data-tooltip="Wind compass direction">
+              <p class="detail-label">Wind Direction</p>
+              <p id="detailWindDirection" class="detail-value">--</p>
+            </article>
+            <article class="detail-card" data-tooltip="Latest OpenWeather observation time">
+              <p class="detail-label">Observed</p>
+              <p id="detailObserved" class="detail-value">--</p>
+            </article>
           </div>
         </section>
 
@@ -229,7 +264,7 @@
 
       <!-- Footer -->
       <footer class="footer">
-        <p>Weather data powered by <strong>OpenWeather API</strong> • Update your API key in <code>app.js</code></p>
+        <p>Live weather, forecast, and air quality data powered by <strong>OpenWeather API</strong> • Auto-refreshes every 10 minutes</p>
       </footer>
 
       <!-- Detail Modal -->
