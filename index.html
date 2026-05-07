@@ -76,6 +76,10 @@
           <button id="searchBtn" class="btn btn-primary" type="submit">
             <span class="btn-content">Search</span>
           </button>
+          <button id="voiceBtn" class="btn btn-voice" type="button" title="Search by voice" aria-label="Search by voice">
+            <span class="voice-dot" aria-hidden="true"></span>
+            <span class="btn-content">Voice</span>
+          </button>
         </form>
 
         <div class="quick-actions">
@@ -196,11 +200,13 @@
               <p class="detail-label">Cloudiness</p>
               <p id="detailClouds" class="detail-value">--</p>
             </article>
-            <article class="detail-card" data-tooltip="Sunrise time in local timezone">
+            <article class="detail-card sun-card" data-tooltip="Sunrise time in local timezone">
+              <span class="detail-icon sunrise-icon" aria-hidden="true"></span>
               <p class="detail-label">Sunrise</p>
               <p id="detailSunrise" class="detail-value">--</p>
             </article>
-            <article class="detail-card" data-tooltip="Sunset time in local timezone">
+            <article class="detail-card sun-card" data-tooltip="Sunset time in local timezone">
+              <span class="detail-icon sunset-icon" aria-hidden="true"></span>
               <p class="detail-label">Sunset</p>
               <p id="detailSunset" class="detail-value">--</p>
             </article>
@@ -230,7 +236,16 @@
               <p id="aqiLabel" class="aqi-label">--</p>
             </div>
             <p id="aqiAdvice" class="aqi-advice">--</p>
+            <div id="aqiHealthGrid" class="aqi-health-grid" aria-label="Air quality health guidance"></div>
           </div>
+        </section>
+
+        <!-- Weather Suggestions -->
+        <section class="panel suggestion-panel">
+          <div class="section-head">
+            <h3>Weather Suggestions</h3>
+          </div>
+          <div id="weatherSuggestions" class="weather-suggestions"></div>
         </section>
 
         <!-- 5-Day Forecast -->
@@ -274,6 +289,11 @@
           <h2 id="detailModalTitle" class="modal-title"></h2>
           <div id="detailModalBody" class="modal-body"></div>
         </div>
+      </div>
+
+      <div id="loadingOverlay" class="loading-overlay" aria-hidden="true">
+        <div class="loading-spinner" aria-hidden="true"></div>
+        <p>Fetching fresh weather data</p>
       </div>
     </div>
 

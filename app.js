@@ -16,6 +16,7 @@ const elements = {
   app: document.getElementById("app"),
   form: document.getElementById("searchForm"),
   searchBtn: document.getElementById("searchBtn"),
+  voiceBtn: document.getElementById("voiceBtn"),
   input: document.getElementById("cityInput"),
   suggestionsList: document.getElementById("suggestionsList"),
   clearHistoryBtn: document.getElementById("clearHistoryBtn"),
@@ -56,8 +57,11 @@ const elements = {
   aqiValue: document.getElementById("aqiValue"),
   aqiLabel: document.getElementById("aqiLabel"),
   aqiAdvice: document.getElementById("aqiAdvice"),
+  aqiHealthGrid: document.getElementById("aqiHealthGrid"),
+  weatherSuggestions: document.getElementById("weatherSuggestions"),
   forecastGrid: document.getElementById("forecastGrid"),
   hourlyStrip: document.getElementById("hourlyStrip"),
+  loadingOverlay: document.getElementById("loadingOverlay"),
   tempChart: document.getElementById("tempChart"),
   detailModal: document.getElementById("detailModal"),
   detailModalTitle: document.getElementById("detailModalTitle"),
@@ -77,6 +81,8 @@ const state = {
   suggestionDebounce: null,
   suggestionToken: 0,
   refreshTimer: null,
+  recognition: null,
+  isListening: false,
 };
 
 const POPULAR_CITIES = [
@@ -91,11 +97,31 @@ const POPULAR_CITIES = [
 ];
 
 const AQI_LEVELS = {
-  1: { label: "Good", advice: "Air quality is healthy for most people." },
-  2: { label: "Fair", advice: "Acceptable air quality. Sensitive groups may be affected." },
-  3: { label: "Moderate", advice: "Reduce long outdoor activities if you are sensitive." },
-  4: { label: "Poor", advice: "Limit outdoor exertion and keep windows closed." },
-  5: { label: "Very Poor", advice: "Avoid outdoor activities and wear N95 masks if necessary." },
+  1: {
+    label: "Good",
+    advice: "Air quality is healthy for most people.",
+    cards: ["Outdoor plans are good", "Open windows if weather allows", "Low risk for sensitive groups"],
+  },
+  2: {
+    label: "Fair",
+    advice: "Acceptable air quality. Sensitive groups may be affected.",
+    cards: ["Most outdoor plans are fine", "Sensitive groups should pace activity", "Keep water nearby"],
+  },
+  3: {
+    label: "Moderate",
+    advice: "Reduce long outdoor activities if you are sensitive.",
+    cards: ["Limit hard outdoor workouts", "Watch for coughing or irritation", "Close windows near traffic"],
+  },
+  4: {
+    label: "Poor",
+    advice: "Limit outdoor exertion and keep windows closed.",
+    cards: ["Avoid intense outdoor activity", "Use a mask if you must go out", "Run indoor air filtration"],
+  },
+  5: {
+    label: "Very Poor",
+    advice: "Avoid outdoor activities and wear N95 masks if necessary.",
+    cards: ["Stay indoors when possible", "Postpone outdoor exercise", "Protect children and elders"],
+  },
 };
 
 const WEATHER_THEME_KEYS = {
@@ -165,6 +191,13 @@ const getHour = (unixSeconds, offsetSeconds) => {
 const getWeatherThemeKey = (mainCondition = "") =>
   WEATHER_THEME_KEYS[mainCondition.toLowerCase()] || "default";
 
+const getAnimatedWeatherClass = (mainCondition = "") => {
+  const key = getWeatherThemeKey(mainCondition);
+  if (key === "drizzle") return "rain";
+  if (key === "thunderstorm") return "rain";
+  return ["clear", "clouds", "rain", "snow"].includes(key) ? key : "clouds";
+};
+
 const windDirection = (degrees) => {
   if (typeof degrees !== "number") return "--";
   const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
@@ -186,6 +219,48 @@ const buildWeatherNarrative = (weather, forecastFirstEntry) => {
   )} ${windUnit} wind, ${visibility} visibility, and a ${rainChance}% rain chance in the next forecast window.`;
 };
 
+const buildWeatherSuggestions = (weather, forecastFirstEntry, aqiResponse) => {
+  const condition = weather.weather[0].main.toLowerCase();
+  const temp = weather.main.temp;
+  const wind = weather.wind.speed;
+  const humidity = weather.main.humidity;
+  const rainChance = Math.round((forecastFirstEntry?.pop || 0) * 100);
+  const aqi = aqiResponse?.list?.[0]?.main?.aqi;
+  const items = [];
+
+  if (condition.includes("rain") || condition.includes("drizzle") || rainChance >= 50) {
+    items.push({ title: "Carry Umbrella", text: `${rainChance}% rain chance in the next forecast window.` });
+  }
+
+  if (condition.includes("snow")) {
+    items.push({ title: "Layer Up", text: "Snow is expected, so keep travel slow and wear warm layers." });
+  }
+
+  if (condition.includes("clear") && temp >= (state.units === "metric" ? 30 : 86)) {
+    items.push({ title: "Stay Hydrated", text: "Clear skies and higher temperatures can dehydrate you quickly." });
+  }
+
+  if (humidity >= 75 && temp >= (state.units === "metric" ? 27 : 81)) {
+    items.push({ title: "Take Breaks", text: "High humidity can make outdoor activity feel harder." });
+  }
+
+  if (wind >= (state.units === "metric" ? 10 : 22)) {
+    items.push({ title: "Secure Loose Items", text: "Wind is strong enough to affect cycling, umbrellas, and light gear." });
+  }
+
+  if (aqi >= 4) {
+    items.push({ title: "Avoid Outdoor Activity", text: "Air quality is poor, especially for sensitive groups." });
+  } else if (aqi === 3) {
+    items.push({ title: "Shorten Outdoor Workouts", text: "Air quality is moderate, so keep intense exercise brief." });
+  }
+
+  if (!items.length) {
+    items.push({ title: "Good To Go", text: "Conditions look comfortable for regular outdoor plans." });
+  }
+
+  return items.slice(0, 4);
+};
+
 // ==================== UI State Management ====================
 
 const setStatus = (msg) => {
@@ -202,6 +277,7 @@ const clearError = () => {
 
 const setLoading = (loading) => {
   elements.app.classList.toggle("is-loading", loading);
+  elements.loadingOverlay?.setAttribute("aria-hidden", String(!loading));
 };
 
 const scheduleAutoRefresh = () => {
@@ -677,9 +753,11 @@ const updateForecast = (forecast, offset) => {
     }).format(date);
 
     const cond = day.best.weather[0];
+    const animatedClass = getAnimatedWeatherClass(cond.main);
 
     card.innerHTML = `
       <p class="forecast-date">${label}</p>
+      <div class="animated-weather-icon ${animatedClass}" aria-hidden="true"></div>
       <img src="https://openweathermap.org/img/wn/${cond.icon}@2x.png" alt="${cond.main}" />
       <p class="forecast-temp">${Math.round(day.max)}° / ${Math.round(day.min)}°</p>
       <p class="forecast-meta">${capitalize(cond.description)}</p>
@@ -698,13 +776,15 @@ const updateHourly = (forecast, offset) => {
     const card = document.createElement("article");
     card.className = "hour-card";
 
-    const timeStr = new Intl.DateTimeFormat(undefined, {
+    const timeStr = formatTime(entry.dt, offset, {
       hour: "numeric",
       minute: "2-digit",
-    }).format(new Date((entry.dt + offset) * 1000));
+    });
+    const animatedClass = getAnimatedWeatherClass(entry.weather[0].main);
 
     card.innerHTML = `
       <p class="hour-time">${timeStr}</p>
+      <div class="animated-weather-icon small ${animatedClass}" aria-hidden="true"></div>
       <img src="https://openweathermap.org/img/wn/${entry.weather[0].icon}.png" alt="${entry.weather[0].main}" />
       <p class="hour-temp">${Math.round(entry.main.temp)}${unitSymbol()}</p>
       <p class="hour-rain">Rain ${Math.round((entry.pop || 0) * 100)}%</p>
@@ -716,12 +796,14 @@ const updateHourly = (forecast, offset) => {
 
 const updateAQI = (aqiResponse) => {
   const aqi = aqiResponse?.list?.[0]?.main?.aqi;
+  elements.aqiHealthGrid.innerHTML = "";
 
   if (!aqi || !AQI_LEVELS[aqi]) {
     elements.aqiValue.textContent = "--";
     elements.aqiValue.style.setProperty("--aqi-progress", 0);
     elements.aqiLabel.textContent = "Unavailable";
     elements.aqiAdvice.textContent = "Air quality data unavailable for this location.";
+    renderChipList(elements.aqiHealthGrid, [], "No health guidance", () => {});
     return;
   }
 
@@ -730,6 +812,25 @@ const updateAQI = (aqiResponse) => {
   elements.aqiValue.style.setProperty("--aqi-progress", aqi * 20);
   elements.aqiLabel.textContent = level.label;
   elements.aqiAdvice.textContent = level.advice;
+
+  level.cards.forEach((text) => {
+    const card = document.createElement("article");
+    card.className = "aqi-health-card";
+    card.textContent = text;
+    elements.aqiHealthGrid.appendChild(card);
+  });
+};
+
+const updateWeatherSuggestions = (weather, forecastFirstEntry, aqiResponse) => {
+  const suggestions = buildWeatherSuggestions(weather, forecastFirstEntry, aqiResponse);
+  elements.weatherSuggestions.innerHTML = "";
+
+  suggestions.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "suggestion-card";
+    card.innerHTML = `<strong>${item.title}</strong><span>${item.text}</span>`;
+    elements.weatherSuggestions.appendChild(card);
+  });
 };
 
 const updateChart = (forecast, offset) => {
@@ -737,10 +838,10 @@ const updateChart = (forecast, offset) => {
 
   const entries = forecast.list.slice(0, 8);
   const labels = entries.map((entry) =>
-    new Intl.DateTimeFormat(undefined, {
+    formatTime(entry.dt, offset, {
       hour: "numeric",
       minute: "2-digit",
-    }).format(new Date((entry.dt + offset) * 1000))
+    })
   );
 
   const temps = entries.map((entry) => entry.main.temp);
@@ -839,7 +940,7 @@ const renderChipList = (container, items, emptyText, onClick) => {
 };
 
 const renderHistory = () => {
-  const history = getStoredList(STORAGE_KEYS.history);
+  const history = getStoredList(STORAGE_KEYS.history).slice(0, 5);
   renderChipList(elements.historyList, history, "No recent searches", (city) => {
     loadWeatherByCity(city, { addToHistory: false });
   });
@@ -860,7 +961,7 @@ const renderFavorites = () => {
 
 const saveHistory = (label) => {
   const history = getStoredList(STORAGE_KEYS.history);
-  const next = [label, ...history.filter((c) => c !== label)].slice(0, 10);
+  const next = [label, ...history.filter((c) => c !== label)].slice(0, 5);
   setStoredList(STORAGE_KEYS.history, next);
   renderHistory();
 };
@@ -907,6 +1008,7 @@ const loadWeatherByCoords = async (lat, lon, options = {}) => {
     updateForecast(forecast, current.timezone);
     updateHourly(forecast, current.timezone);
     updateAQI(aqi);
+    updateWeatherSuggestions(current, forecast.list[0], aqi);
     updateChart(forecast, current.timezone);
 
     setStatus(
@@ -1058,6 +1160,68 @@ const handleClearFavorites = () => {
   setStatus("Favorites cleared.");
 };
 
+const setVoiceListening = (listening) => {
+  state.isListening = listening;
+  elements.voiceBtn?.classList.toggle("is-listening", listening);
+  elements.voiceBtn?.setAttribute("aria-pressed", String(listening));
+};
+
+const setupVoiceSearch = () => {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition || !elements.voiceBtn) {
+    elements.voiceBtn.disabled = true;
+    elements.voiceBtn.title = "Voice search is not supported in this browser";
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = navigator.language || "en-US";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  recognition.addEventListener("start", () => {
+    setVoiceListening(true);
+    setStatus("Listening for a city name...");
+  });
+
+  recognition.addEventListener("result", async (event) => {
+    const transcript = event.results?.[0]?.[0]?.transcript?.trim();
+    if (!transcript) return;
+
+    elements.input.value = transcript;
+    updateSearchButtonState();
+    setStatus(`Voice search: ${transcript}`);
+    hideSuggestions();
+    await loadWeatherByCity(transcript, { addToHistory: true });
+  });
+
+  recognition.addEventListener("error", (event) => {
+    setError(event.error === "not-allowed" ? "Microphone access was blocked." : "Voice search could not hear a city.");
+    setStatus("");
+  });
+
+  recognition.addEventListener("end", () => setVoiceListening(false));
+
+  state.recognition = recognition;
+};
+
+const handleVoiceSearch = () => {
+  if (!state.recognition) return;
+
+  if (state.isListening) {
+    state.recognition.stop();
+    return;
+  }
+
+  clearError();
+  try {
+    state.recognition.start();
+  } catch {
+    setVoiceListening(false);
+  }
+};
+
 const toggleTheme = () => {
   const current = document.documentElement.dataset.theme || "light";
   const next = current === "dark" ? "light" : "dark";
@@ -1136,6 +1300,7 @@ const init = async () => {
   const unitSymb = state.units === "metric" ? "°C" : "°F";
   elements.unitToggle.innerHTML = `<span class="icon">${unitSymb}</span><span class="text">${unitText}</span>`;
 
+  setupVoiceSearch();
   updateSearchButtonState();
   renderHistory();
   renderFavorites();
@@ -1169,6 +1334,7 @@ elements.input.addEventListener("focus", handleInputFocus);
 elements.input.addEventListener("keydown", handleInputKeydown);
 elements.locateBtn.addEventListener("click", handleLocate);
 elements.refreshBtn.addEventListener("click", handleRefresh);
+elements.voiceBtn.addEventListener("click", handleVoiceSearch);
 elements.clearHistoryBtn.addEventListener("click", handleClearHistory);
 elements.clearFavoritesBtn.addEventListener("click", handleClearFavorites);
 elements.themeToggle.addEventListener("click", toggleTheme);
