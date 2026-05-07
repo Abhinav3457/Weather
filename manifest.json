@@ -1,0 +1,17 @@
+{
+  "name": "Atmosphere Desk Weather",
+  "short_name": "Weather Desk",
+  "description": "A responsive weather dashboard with forecasts, AQI, alerts, and saved cities.",
+  "start_url": "index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f0f7ff",
+  "theme_color": "#0369a1",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "16x16 32x32",
+      "type": "image/x-icon"
+    }
+  ]
+}

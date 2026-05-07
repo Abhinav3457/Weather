@@ -393,6 +393,10 @@ body::before {
   animation: voice-pulse 1s ease-out infinite;
 }
 
+.install-btn[hidden] {
+  display: none;
+}
+
 @keyframes voice-pulse {
   to {
     box-shadow: 0 0 0 11px transparent;
@@ -623,6 +627,16 @@ body::before {
 
 .forecast-panel {
   grid-column: span 8;
+  padding: 24px;
+}
+
+.alerts-panel {
+  grid-column: span 5;
+  padding: 24px;
+}
+
+.favorites-dashboard-panel {
+  grid-column: span 7;
   padding: 24px;
 }
 
@@ -2046,6 +2060,128 @@ body[data-weather="thunderstorm"] .chart-wrap {
   gap: 10px;
 }
 
+.alerts-list,
+.favorite-dashboard {
+  display: grid;
+  gap: 10px;
+}
+
+.alerts-list {
+  grid-template-columns: 1fr;
+}
+
+.alert-card,
+.favorite-weather-card {
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.52);
+  color: var(--text-primary);
+  padding: 13px;
+}
+
+[data-theme="dark"] .alert-card,
+[data-theme="dark"] .favorite-weather-card,
+body[data-weather="thunderstorm"] .alert-card,
+body[data-weather="thunderstorm"] .favorite-weather-card {
+  background: rgba(15, 23, 42, 0.52);
+}
+
+.alert-card {
+  display: grid;
+  gap: 6px;
+  border-left: 4px solid var(--success);
+}
+
+.alert-card.severe {
+  border-left-color: var(--danger);
+  background:
+    linear-gradient(90deg, rgba(239, 68, 68, 0.12), transparent 55%),
+    rgba(255, 255, 255, 0.52);
+}
+
+.alert-card strong {
+  color: var(--text-primary);
+  font-size: 0.98rem;
+}
+
+.alert-card span,
+.alert-card small {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.alert-card p {
+  margin: 2px 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.favorite-dashboard {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.favorite-weather-card {
+  display: grid;
+  gap: 5px;
+  min-height: 126px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.favorite-weather-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-lighter);
+  transform: translateY(-3px);
+}
+
+.favorite-weather-card.empty {
+  grid-column: 1 / -1;
+  min-height: auto;
+  color: var(--text-secondary);
+  cursor: default;
+}
+
+.favorite-weather-card.empty:hover {
+  border-color: color-mix(in srgb, var(--border) 82%, transparent);
+  background: rgba(255, 255, 255, 0.52);
+  transform: none;
+}
+
+.favorite-city {
+  color: var(--text-primary);
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favorite-temp {
+  color: var(--accent);
+  font-size: 1.8rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.favorite-meta,
+.favorite-wind {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.skeleton-card {
+  min-height: 126px;
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.48), transparent),
+    linear-gradient(var(--surface-alt), var(--surface-alt));
+  background-size: 220px 100%, 100% 100%;
+  animation: skeleton-sheen 1.2s ease-in-out infinite;
+}
+
 .aqi-health-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -2297,6 +2433,8 @@ body[data-weather="thunderstorm"] .suggestion-card {
 }
 
 @media (max-width: 1024px) {
+  .alerts-panel,
+  .favorites-dashboard-panel,
   .suggestion-panel {
     grid-column: span 12;
   }
@@ -2304,6 +2442,7 @@ body[data-weather="thunderstorm"] .suggestion-card {
 
 @media (max-width: 768px) {
   .aqi-health-grid,
+  .favorite-dashboard,
   .weather-suggestions {
     grid-template-columns: 1fr;
   }

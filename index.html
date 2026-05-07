@@ -10,6 +10,8 @@
       href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Sora:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#0369a1" />
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
@@ -52,6 +54,10 @@
           <button id="themeToggle" class="btn-icon-text" type="button" aria-pressed="false" title="Toggle dark mode">
             <span class="icon">☀️</span>
             <span class="text">Light</span>
+          </button>
+          <button id="installBtn" class="btn-icon-text install-btn" type="button" hidden title="Install app">
+            <span class="icon">+</span>
+            <span class="text">Install</span>
           </button>
         </div>
       </header>
@@ -246,6 +252,28 @@
             <h3>Weather Suggestions</h3>
           </div>
           <div id="weatherSuggestions" class="weather-suggestions"></div>
+        </section>
+
+        <!-- Weather Alerts -->
+        <section class="panel alerts-panel">
+          <div class="section-head">
+            <div>
+              <h3>Weather Alerts</h3>
+              <p class="subtitle-small">Official alerts when available</p>
+            </div>
+          </div>
+          <div id="alertsList" class="alerts-list"></div>
+        </section>
+
+        <!-- Favorite City Dashboard -->
+        <section class="panel favorites-dashboard-panel">
+          <div class="section-head">
+            <div>
+              <h3>Favorite Cities</h3>
+              <p class="subtitle-small">Quick live cards for saved places</p>
+            </div>
+          </div>
+          <div id="favoriteDashboard" class="favorite-dashboard"></div>
         </section>
 
         <!-- 5-Day Forecast -->

@@ -2,6 +2,7 @@
 const API_KEY = "bac7893eaffd11c1ff3b45e7f7f541ad"; // Replace with your API key
 const API_BASE = "https://api.openweathermap.org/data/2.5";
 const GEO_BASE = "https://api.openweathermap.org/geo/1.0";
+const ONE_CALL_BASE = "https://api.openweathermap.org/data/3.0/onecall";
 
 const STORAGE_KEYS = {
   history: "weather-history-v3",
@@ -27,6 +28,7 @@ const elements = {
   refreshBtn: document.getElementById("refreshBtn"),
   unitToggle: document.getElementById("unitToggle"),
   themeToggle: document.getElementById("themeToggle"),
+  installBtn: document.getElementById("installBtn"),
   themeWeatherLabel: document.getElementById("themeWeatherLabel"),
   coordLabel: document.getElementById("coordLabel"),
   updatedLabel: document.getElementById("updatedLabel"),
@@ -59,6 +61,8 @@ const elements = {
   aqiAdvice: document.getElementById("aqiAdvice"),
   aqiHealthGrid: document.getElementById("aqiHealthGrid"),
   weatherSuggestions: document.getElementById("weatherSuggestions"),
+  alertsList: document.getElementById("alertsList"),
+  favoriteDashboard: document.getElementById("favoriteDashboard"),
   forecastGrid: document.getElementById("forecastGrid"),
   hourlyStrip: document.getElementById("hourlyStrip"),
   loadingOverlay: document.getElementById("loadingOverlay"),
@@ -83,6 +87,8 @@ const state = {
   refreshTimer: null,
   recognition: null,
   isListening: false,
+  favoriteDashboardToken: 0,
+  deferredInstallPrompt: null,
 };
 
 const POPULAR_CITIES = [
@@ -177,6 +183,9 @@ const formatTime = (unixSeconds, offsetSeconds, options) => {
     timeZone: "UTC",
   }).format(shifted);
 };
+
+const formatBrowserTime = (unixSeconds, options) =>
+  new Intl.DateTimeFormat(undefined, options).format(new Date(unixSeconds * 1000));
 
 const getDateKey = (unixSeconds, offsetSeconds) => {
   const shifted = new Date((unixSeconds + offsetSeconds) * 1000);
@@ -511,6 +520,22 @@ const getAirQuality = (lat, lon) =>
     null
   );
 
+const getWeatherAlerts = async (lat, lon) => {
+  try {
+    return await fetchJson(
+      buildUrl(ONE_CALL_BASE, {
+        lat,
+        lon,
+        exclude: "current,minutely,hourly,daily",
+        appid: API_KEY,
+      }),
+      null
+    );
+  } catch {
+    return null;
+  }
+};
+
 // ==================== Weather Display Updates ====================
 
 const setWeatherGradient = (mainCondition) => {
@@ -833,6 +858,35 @@ const updateWeatherSuggestions = (weather, forecastFirstEntry, aqiResponse) => {
   });
 };
 
+const updateAlerts = (alertsResponse) => {
+  const alerts = alertsResponse?.alerts || [];
+  elements.alertsList.innerHTML = "";
+
+  if (!alerts.length) {
+    const empty = document.createElement("article");
+    empty.className = "alert-card calm";
+    empty.innerHTML = "<strong>No active alerts</strong><span>No official weather alerts are currently available for this location.</span>";
+    elements.alertsList.appendChild(empty);
+    return;
+  }
+
+  alerts.slice(0, 3).forEach((alert) => {
+    const card = document.createElement("article");
+    card.className = "alert-card severe";
+    const starts = alert.start ? formatBrowserTime(alert.start, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Now";
+    const ends = alert.end ? formatBrowserTime(alert.end, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Until further notice";
+    const description = alert.description || "Check local guidance and stay aware of changing conditions.";
+
+    card.innerHTML = `
+      <strong>${alert.event || "Weather Alert"}</strong>
+      <span>${starts} - ${ends}</span>
+      <p>${description.slice(0, 220)}${description.length > 220 ? "..." : ""}</p>
+      <small>${alert.sender_name || "Weather authority"}</small>
+    `;
+    elements.alertsList.appendChild(card);
+  });
+};
+
 const updateChart = (forecast, offset) => {
   if (typeof Chart === "undefined") return;
 
@@ -957,6 +1011,68 @@ const renderFavorites = () => {
   const isFav = favs.includes(state.weatherLabel);
   elements.favoriteBtn.classList.toggle("active", isFav);
   elements.favoriteBtn.textContent = isFav ? "★" : "☆";
+  updateFavoriteDashboard(favs);
+};
+
+const renderFavoriteDashboardCards = (items) => {
+  elements.favoriteDashboard.innerHTML = "";
+
+  if (!items.length) {
+    const empty = document.createElement("article");
+    empty.className = "favorite-weather-card empty";
+    empty.textContent = "Save cities with the star button to build your quick dashboard.";
+    elements.favoriteDashboard.appendChild(empty);
+    return;
+  }
+
+  items.forEach(({ label, weather }) => {
+    const condition = weather.weather[0];
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "favorite-weather-card";
+    card.innerHTML = `
+      <span class="favorite-city">${label}</span>
+      <span class="favorite-temp">${Math.round(weather.main.temp)}${unitSymbol()}</span>
+      <span class="favorite-meta">${capitalize(condition.description)}</span>
+      <span class="favorite-wind">${Math.round(weather.wind.speed)} ${state.units === "metric" ? "m/s" : "mph"} wind</span>
+    `;
+    card.addEventListener("click", () => loadWeatherByCity(label, { addToHistory: false }));
+    elements.favoriteDashboard.appendChild(card);
+  });
+};
+
+const updateFavoriteDashboard = async (favs = getStoredList(STORAGE_KEYS.favorites)) => {
+  const token = ++state.favoriteDashboardToken;
+
+  if (!elements.favoriteDashboard) return;
+
+  if (!favs.length) {
+    renderFavoriteDashboardCards([]);
+    return;
+  }
+
+  elements.favoriteDashboard.innerHTML = "";
+  favs.slice(0, 6).forEach(() => {
+    const skeleton = document.createElement("article");
+    skeleton.className = "favorite-weather-card skeleton-card";
+    elements.favoriteDashboard.appendChild(skeleton);
+  });
+
+  const results = await Promise.allSettled(
+    favs.slice(0, 6).map(async (label) => {
+      const coords = await getCoordsByCity(label);
+      const weather = await getCurrentWeather(coords.lat, coords.lon);
+      return { label, weather };
+    })
+  );
+
+  if (token !== state.favoriteDashboardToken) return;
+
+  const cards = results
+    .filter((result) => result.status === "fulfilled")
+    .map((result) => result.value);
+
+  renderFavoriteDashboardCards(cards);
 };
 
 const saveHistory = (label) => {
@@ -994,13 +1110,14 @@ const loadWeatherByCoords = async (lat, lon, options = {}) => {
   if (!silent) setStatus("Loading weather data...");
 
   try {
-    const [current, forecast, aqi] = await Promise.all([
+    const [current, forecast, aqi, alerts] = await Promise.all([
       getCurrentWeather(lat, lon),
       getForecast(lat, lon),
       getAirQuality(lat, lon),
+      getWeatherAlerts(lat, lon),
     ]);
 
-    state.current = { current, forecast, aqi };
+    state.current = { current, forecast, aqi, alerts };
     state.weatherLabel = cityLabel || `${current.name}, ${current.sys.country}`;
     state.currentCoords = { lat, lon };
 
@@ -1009,6 +1126,7 @@ const loadWeatherByCoords = async (lat, lon, options = {}) => {
     updateHourly(forecast, current.timezone);
     updateAQI(aqi);
     updateWeatherSuggestions(current, forecast.list[0], aqi);
+    updateAlerts(alerts);
     updateChart(forecast, current.timezone);
 
     setStatus(
@@ -1222,6 +1340,41 @@ const handleVoiceSearch = () => {
   }
 };
 
+const setupInstallPrompt = () => {
+  if (!elements.installBtn) return;
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    state.deferredInstallPrompt = event;
+    elements.installBtn.hidden = false;
+  });
+
+  window.addEventListener("appinstalled", () => {
+    state.deferredInstallPrompt = null;
+    elements.installBtn.hidden = true;
+    setStatus("App installed successfully.");
+  });
+};
+
+const handleInstallApp = async () => {
+  if (!state.deferredInstallPrompt) return;
+
+  state.deferredInstallPrompt.prompt();
+  await state.deferredInstallPrompt.userChoice;
+  state.deferredInstallPrompt = null;
+  elements.installBtn.hidden = true;
+};
+
+const registerServiceWorker = () => {
+  if (!("serviceWorker" in navigator)) return;
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("service-worker.js").catch(() => {
+      setStatus("Offline support is not available in this browser session.");
+    });
+  });
+};
+
 const toggleTheme = () => {
   const current = document.documentElement.dataset.theme || "light";
   const next = current === "dark" ? "light" : "dark";
@@ -1300,6 +1453,8 @@ const init = async () => {
   const unitSymb = state.units === "metric" ? "°C" : "°F";
   elements.unitToggle.innerHTML = `<span class="icon">${unitSymb}</span><span class="text">${unitText}</span>`;
 
+  setupInstallPrompt();
+  registerServiceWorker();
   setupVoiceSearch();
   updateSearchButtonState();
   renderHistory();
@@ -1335,6 +1490,7 @@ elements.input.addEventListener("keydown", handleInputKeydown);
 elements.locateBtn.addEventListener("click", handleLocate);
 elements.refreshBtn.addEventListener("click", handleRefresh);
 elements.voiceBtn.addEventListener("click", handleVoiceSearch);
+elements.installBtn.addEventListener("click", handleInstallApp);
 elements.clearHistoryBtn.addEventListener("click", handleClearHistory);
 elements.clearFavoritesBtn.addEventListener("click", handleClearFavorites);
 elements.themeToggle.addEventListener("click", toggleTheme);
