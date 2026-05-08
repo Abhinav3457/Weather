@@ -2611,3 +2611,122 @@ body[data-weather="thunderstorm"] .suggestion-card {
     overflow-wrap: anywhere;
   }
 }
+
+@media (max-width: 900px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .current-weather,
+  .detail-panel,
+  .aqi-panel,
+  .forecast-panel,
+  .alerts-panel,
+  .favorites-dashboard-panel,
+  .suggestion-panel,
+  .hourly-panel,
+  .chart-panel {
+    grid-column: span 6;
+  }
+
+  .temperature-box {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .weather-stage {
+    width: clamp(120px, 36vw, 170px);
+  }
+
+  .hero-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .current-weather,
+  .detail-panel,
+  .aqi-panel,
+  .forecast-panel,
+  .alerts-panel,
+  .favorites-dashboard-panel,
+  .suggestion-panel,
+  .hourly-panel,
+  .chart-panel {
+    grid-column: 1 / -1;
+    padding: 16px;
+  }
+
+  .topbar-actions,
+  .quick-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .search-form {
+    grid-template-columns: 1fr;
+  }
+
+  .aqi-display {
+    grid-template-columns: 1fr;
+    text-align: center;
+    gap: 10px;
+  }
+
+  .aqi-meta {
+    justify-items: center;
+  }
+
+  .aqi-chart-wrap {
+    height: 120px;
+  }
+
+  .hero-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .forecast-grid,
+  .favorite-dashboard,
+  .weather-suggestions,
+  .aqi-health-grid,
+  .detail-grid,
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-wrap {
+    min-height: 240px;
+  }
+}
+
+@media (max-width: 380px) {
+  .app {
+    width: calc(100% - 12px);
+  }
+
+  .topbar {
+    padding: 14px;
+  }
+
+  .dashboard-title {
+    font-size: 1.35rem;
+  }
+
+  .btn,
+  .btn-icon-text {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+
+  .weather-stage {
+    width: 104px;
+  }
+
+  .main-temp {
+    font-size: clamp(1.8rem, 18vw, 2.6rem);
+  }
+}
