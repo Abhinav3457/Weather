@@ -165,6 +165,37 @@ const getStoredList = (key) => {
 
 const setStoredList = (key, list) => localStorage.setItem(key, JSON.stringify(list));
 
+const speakOnceAfterInteraction = (text) => {
+  if (!window.speechSynthesis || !text) return;
+  if (sessionStorage.getItem("weather-welcome-spoken") === "true") return;
+
+  const speak = () => {
+    if (sessionStorage.getItem("weather-welcome-spoken") === "true") return;
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find((voice) => /male|man/i.test(voice.name)) ||
+      voices.find((voice) => voice.lang?.startsWith("en")) ||
+      voices[0];
+
+    if (preferred) utterance.voice = preferred;
+    utterance.rate = 0.95;
+    utterance.pitch = 0.8;
+
+    window.speechSynthesis.speak(utterance);
+    sessionStorage.setItem("weather-welcome-spoken", "true");
+  };
+
+  const handler = () => {
+    speak();
+    document.removeEventListener("pointerdown", handler);
+    document.removeEventListener("keydown", handler);
+  };
+
+  document.addEventListener("pointerdown", handler, { once: true });
+  document.addEventListener("keydown", handler, { once: true });
+};
+
 const formatOffset = (offsetSeconds) => {
   const sign = offsetSeconds >= 0 ? "+" : "-";
   const hours = Math.floor(Math.abs(offsetSeconds) / 3600)
@@ -1459,6 +1490,7 @@ const init = async () => {
   updateSearchButtonState();
   renderHistory();
   renderFavorites();
+  speakOnceAfterInteraction("Welcome to the weather dashboard.");
 
   // Load last place or default
   const lastPlaceRaw = localStorage.getItem(STORAGE_KEYS.lastPlace);
