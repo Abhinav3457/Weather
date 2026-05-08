@@ -72,6 +72,22 @@ body::before {
   z-index: 0;
 }
 
+.welcome-banner {
+  position: sticky;
+  top: 12px;
+  z-index: 3;
+  margin: 12px auto 0;
+  width: min(1200px, calc(100% - 32px));
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+}
+
 /* Weather Effects Container */
 .weather-effects {
   position: fixed;
@@ -525,6 +541,22 @@ body::before {
   color: var(--danger);
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+.welcome-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 10px;
+  width: fit-content;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.95;
 }
 
 /* Chips */
@@ -1943,6 +1975,12 @@ body[data-weather="thunderstorm"] .stage-sun {
   text-align: left;
 }
 
+.aqi-gauge {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+}
+
 .aqi-value {
   display: grid;
   place-items: center;
@@ -1952,6 +1990,39 @@ body[data-weather="thunderstorm"] .stage-sun {
   background: conic-gradient(var(--accent) calc(var(--aqi-progress, 20) * 1%), rgba(148, 163, 184, 0.24) 0);
   color: var(--text-primary);
   font-size: 2.1rem;
+}
+
+.aqi-unit {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.aqi-meta {
+  display: grid;
+  gap: 4px;
+}
+
+.aqi-level {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.aqi-chart-wrap {
+  height: 140px;
+  margin: 12px 0 0;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+[data-theme="dark"] .aqi-chart-wrap,
+body[data-weather="thunderstorm"] .aqi-chart-wrap {
+  background: rgba(15, 23, 42, 0.32);
 }
 
 [data-theme="dark"] .aqi-value,

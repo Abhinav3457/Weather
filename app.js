@@ -29,6 +29,8 @@ const elements = {
   unitToggle: document.getElementById("unitToggle"),
   themeToggle: document.getElementById("themeToggle"),
   installBtn: document.getElementById("installBtn"),
+  welcomeHint: document.getElementById("welcomeHint"),
+  welcomeBanner: document.getElementById("welcomeBanner"),
   themeWeatherLabel: document.getElementById("themeWeatherLabel"),
   coordLabel: document.getElementById("coordLabel"),
   updatedLabel: document.getElementById("updatedLabel"),
@@ -58,8 +60,10 @@ const elements = {
   weatherNarrative: document.getElementById("weatherNarrative"),
   aqiValue: document.getElementById("aqiValue"),
   aqiLabel: document.getElementById("aqiLabel"),
+  aqiLevel: document.getElementById("aqiLevel"),
   aqiAdvice: document.getElementById("aqiAdvice"),
   aqiHealthGrid: document.getElementById("aqiHealthGrid"),
+  aqiChart: document.getElementById("aqiChart"),
   weatherSuggestions: document.getElementById("weatherSuggestions"),
   alertsList: document.getElementById("alertsList"),
   favoriteDashboard: document.getElementById("favoriteDashboard"),
@@ -78,6 +82,7 @@ const state = {
   units: localStorage.getItem(STORAGE_KEYS.units) || "metric",
   current: null,
   chart: null,
+  aqiChart: null,
   weatherLabel: "",
   currentCoords: null,
   suggestions: [],
@@ -130,6 +135,27 @@ const AQI_LEVELS = {
   },
 };
 
+const AQI_BREAKPOINTS = {
+  pm25: [
+    { cLow: 0.0, cHigh: 12.0, iLow: 0, iHigh: 50 },
+    { cLow: 12.1, cHigh: 35.4, iLow: 51, iHigh: 100 },
+    { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 },
+    { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 },
+    { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300 },
+    { cLow: 250.5, cHigh: 350.4, iLow: 301, iHigh: 400 },
+    { cLow: 350.5, cHigh: 500.4, iLow: 401, iHigh: 500 },
+  ],
+  pm10: [
+    { cLow: 0, cHigh: 54, iLow: 0, iHigh: 50 },
+    { cLow: 55, cHigh: 154, iLow: 51, iHigh: 100 },
+    { cLow: 155, cHigh: 254, iLow: 101, iHigh: 150 },
+    { cLow: 255, cHigh: 354, iLow: 151, iHigh: 200 },
+    { cLow: 355, cHigh: 424, iLow: 201, iHigh: 300 },
+    { cLow: 425, cHigh: 504, iLow: 301, iHigh: 400 },
+    { cLow: 505, cHigh: 604, iLow: 401, iHigh: 500 },
+  ],
+};
+
 const WEATHER_THEME_KEYS = {
   clear: "clear",
   clouds: "clouds",
@@ -169,25 +195,46 @@ const speakOnceAfterInteraction = (text) => {
   if (!window.speechSynthesis || !text) return;
   if (sessionStorage.getItem("weather-welcome-spoken") === "true") return;
 
+  const pickVoice = (voices) =>
+    voices.find((voice) => /male|man/i.test(voice.name)) ||
+    voices.find((voice) => voice.lang?.startsWith("en")) ||
+    voices[0];
+
   const speak = () => {
     if (sessionStorage.getItem("weather-welcome-spoken") === "true") return;
-    const utterance = new SpeechSynthesisUtterance(text);
 
     const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find((voice) => /male|man/i.test(voice.name)) ||
-      voices.find((voice) => voice.lang?.startsWith("en")) ||
-      voices[0];
-
-    if (preferred) utterance.voice = preferred;
+    const utterance = new SpeechSynthesisUtterance(text);
+    const preferred = voices.length ? pickVoice(voices) : null;
+    if (preferred) {
+      utterance.voice = preferred;
+    }
     utterance.rate = 0.95;
     utterance.pitch = 0.8;
+    utterance.onend = () => {
+      sessionStorage.setItem("weather-welcome-spoken", "true");
+      if (elements.welcomeHint) {
+        elements.welcomeHint.textContent = "";
+      }
+      if (elements.welcomeBanner) {
+        elements.welcomeBanner.style.display = "none";
+      }
+    };
 
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.resume();
     window.speechSynthesis.speak(utterance);
-    sessionStorage.setItem("weather-welcome-spoken", "true");
   };
 
   const handler = () => {
-    speak();
+    if (window.speechSynthesis.getVoices().length) {
+      speak();
+    } else {
+      window.speechSynthesis.onvoiceschanged = () => {
+        speak();
+        window.speechSynthesis.onvoiceschanged = null;
+      };
+    }
     document.removeEventListener("pointerdown", handler);
     document.removeEventListener("keydown", handler);
   };
@@ -265,7 +312,8 @@ const buildWeatherSuggestions = (weather, forecastFirstEntry, aqiResponse) => {
   const wind = weather.wind.speed;
   const humidity = weather.main.humidity;
   const rainChance = Math.round((forecastFirstEntry?.pop || 0) * 100);
-  const aqi = aqiResponse?.list?.[0]?.main?.aqi;
+  const aqiSummary = getAqiSummary(aqiResponse);
+  const aqi = aqiSummary?.level;
   const items = [];
 
   if (condition.includes("rain") || condition.includes("drizzle") || rainChance >= 50) {
@@ -299,6 +347,46 @@ const buildWeatherSuggestions = (weather, forecastFirstEntry, aqiResponse) => {
   }
 
   return items.slice(0, 4);
+};
+
+const calculateAqi = (concentration, breakpoints) => {
+  if (typeof concentration !== "number") return null;
+  const target = Math.max(0, concentration);
+  const bracket = breakpoints.find(({ cLow, cHigh }) => target >= cLow && target <= cHigh) ||
+    breakpoints[breakpoints.length - 1];
+
+  const { cLow, cHigh, iLow, iHigh } = bracket;
+  const value = ((iHigh - iLow) / (cHigh - cLow)) * (target - cLow) + iLow;
+  return Math.round(Math.min(500, Math.max(0, value)));
+};
+
+const getAqiLevelFromIndex = (aqiValue) => {
+  if (typeof aqiValue !== "number") return null;
+  if (aqiValue <= 50) return 1;
+  if (aqiValue <= 100) return 2;
+  if (aqiValue <= 150) return 3;
+  if (aqiValue <= 200) return 4;
+  return 5;
+};
+
+const getAqiSummary = (aqiResponse) => {
+  const components = aqiResponse?.list?.[0]?.components;
+  if (!components) return null;
+
+  const candidates = [];
+  const pm25Aqi = calculateAqi(components.pm2_5, AQI_BREAKPOINTS.pm25);
+  const pm10Aqi = calculateAqi(components.pm10, AQI_BREAKPOINTS.pm10);
+
+  if (pm25Aqi !== null) candidates.push(pm25Aqi);
+  if (pm10Aqi !== null) candidates.push(pm10Aqi);
+
+  if (!candidates.length) return null;
+
+  const aqiValue = Math.max(...candidates);
+  return {
+    aqiValue,
+    level: getAqiLevelFromIndex(aqiValue),
+  };
 };
 
 // ==================== UI State Management ====================
@@ -851,29 +939,82 @@ const updateHourly = (forecast, offset) => {
 };
 
 const updateAQI = (aqiResponse) => {
-  const aqi = aqiResponse?.list?.[0]?.main?.aqi;
+  const aqiSummary = getAqiSummary(aqiResponse);
+  const aqiValue = aqiSummary?.aqiValue;
+  const aqiLevel = aqiSummary?.level;
   elements.aqiHealthGrid.innerHTML = "";
 
-  if (!aqi || !AQI_LEVELS[aqi]) {
+  if (!aqiSummary || !aqiLevel || !AQI_LEVELS[aqiLevel]) {
     elements.aqiValue.textContent = "--";
     elements.aqiValue.style.setProperty("--aqi-progress", 0);
     elements.aqiLabel.textContent = "Unavailable";
+    elements.aqiLevel.textContent = "Level -- / 5";
     elements.aqiAdvice.textContent = "Air quality data unavailable for this location.";
     renderChipList(elements.aqiHealthGrid, [], "No health guidance", () => {});
+    updateAqiChart(null);
     return;
   }
 
-  const level = AQI_LEVELS[aqi];
-  elements.aqiValue.textContent = aqi;
-  elements.aqiValue.style.setProperty("--aqi-progress", aqi * 20);
+  const level = AQI_LEVELS[aqiLevel];
+  elements.aqiValue.textContent = aqiValue;
+  elements.aqiValue.style.setProperty("--aqi-progress", aqiLevel * 20);
   elements.aqiLabel.textContent = level.label;
+  elements.aqiLevel.textContent = `Level ${aqiLevel} / 5`;
   elements.aqiAdvice.textContent = level.advice;
+  updateAqiChart(aqiLevel);
 
   level.cards.forEach((text) => {
     const card = document.createElement("article");
     card.className = "aqi-health-card";
     card.textContent = text;
     elements.aqiHealthGrid.appendChild(card);
+  });
+};
+
+const updateAqiChart = (level) => {
+  if (typeof Chart === "undefined" || !elements.aqiChart) return;
+
+  const labels = ["Good", "Fair", "Moderate", "Poor", "Very Poor"];
+  const colors = ["#22c55e", "#84cc16", "#f59e0b", "#f97316", "#ef4444"];
+  const muted = [
+    "rgba(34, 197, 94, 0.25)",
+    "rgba(132, 204, 22, 0.25)",
+    "rgba(245, 158, 11, 0.25)",
+    "rgba(249, 115, 22, 0.25)",
+    "rgba(239, 68, 68, 0.25)",
+  ];
+
+  const backgroundColor = labels.map((_, index) =>
+    level && index + 1 === level ? colors[index] : muted[index]
+  );
+
+  if (state.aqiChart) state.aqiChart.destroy();
+
+  state.aqiChart = new Chart(elements.aqiChart, {
+    type: "doughnut",
+    data: {
+      labels,
+      datasets: [
+        {
+          data: [1, 1, 1, 1, 1],
+          backgroundColor,
+          borderWidth: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "62%",
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => `Level ${context.dataIndex + 1}: ${context.label}`,
+          },
+        },
+      },
+    },
   });
 };
 

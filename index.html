@@ -16,6 +16,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body data-weather="default">
+    <div id="welcomeBanner" class="welcome-banner" role="status" aria-live="polite">
+      Welcome to the Weather App! Tap anywhere to hear the welcome message.
+    </div>
     <div class="weather-backdrop" aria-hidden="true">
       <div class="sky-band sky-band-a"></div>
       <div class="sky-band sky-band-b"></div>
@@ -100,6 +103,7 @@
         <div class="status-row">
           <p id="statusMessage" class="status-message" aria-live="polite"></p>
           <p id="errorMessage" class="error-message" role="alert" aria-live="assertive"></p>
+          <p id="welcomeHint" class="welcome-hint" aria-live="polite">Welcome to the Weather App! Tap anywhere to hear the welcome message.</p>
         </div>
 
         <!-- Search History & Favorites -->
@@ -238,8 +242,17 @@
           </div>
           <div class="aqi-content">
             <div class="aqi-display">
-              <p id="aqiValue" class="aqi-value">--</p>
-              <p id="aqiLabel" class="aqi-label">--</p>
+              <div class="aqi-gauge">
+                <p id="aqiValue" class="aqi-value">--</p>
+                <span class="aqi-unit">AQI</span>
+              </div>
+              <div class="aqi-meta">
+                <p id="aqiLabel" class="aqi-label">--</p>
+                <p id="aqiLevel" class="aqi-level">Level -- / 5</p>
+              </div>
+            </div>
+            <div class="aqi-chart-wrap">
+              <canvas id="aqiChart" aria-label="Air quality level chart"></canvas>
             </div>
             <p id="aqiAdvice" class="aqi-advice">--</p>
             <div id="aqiHealthGrid" class="aqi-health-grid" aria-label="Air quality health guidance"></div>
