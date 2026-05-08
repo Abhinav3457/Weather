@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   theme: "weather-theme-v3",
   units: "weather-units-v3",
   lastPlace: "weather-last-place-v3",
+  visitorName: "weather-visitor-name-v1",
 };
 
 // ==================== DOM Elements ====================
@@ -29,8 +30,9 @@ const elements = {
   unitToggle: document.getElementById("unitToggle"),
   themeToggle: document.getElementById("themeToggle"),
   installBtn: document.getElementById("installBtn"),
-  welcomeHint: document.getElementById("welcomeHint"),
-  welcomeBanner: document.getElementById("welcomeBanner"),
+  welcomeForm: document.getElementById("welcomeForm"),
+  welcomeName: document.getElementById("welcomeName"),
+  welcomeGreeting: document.getElementById("welcomeGreeting"),
   themeWeatherLabel: document.getElementById("themeWeatherLabel"),
   coordLabel: document.getElementById("coordLabel"),
   updatedLabel: document.getElementById("updatedLabel"),
@@ -191,20 +193,36 @@ const getStoredList = (key) => {
 
 const setStoredList = (key, list) => localStorage.setItem(key, JSON.stringify(list));
 
+const pickVoice = (voices) =>
+  voices.find((voice) => /male|man/i.test(voice.name)) ||
+  voices.find((voice) => voice.lang?.startsWith("en")) ||
+  voices[0];
+
+const speakText = (text) => {
+  if (!window.speechSynthesis || !text) return;
+
+  const voices = window.speechSynthesis.getVoices();
+  const utterance = new SpeechSynthesisUtterance(text);
+  const preferred = voices.length ? pickVoice(voices) : null;
+  if (preferred) {
+    utterance.voice = preferred;
+  }
+  utterance.rate = 0.95;
+  utterance.pitch = 0.8;
+
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.resume();
+  window.speechSynthesis.speak(utterance);
+};
+
 const speakOnceAfterInteraction = (text) => {
   if (!window.speechSynthesis || !text) return;
   if (sessionStorage.getItem("weather-welcome-spoken") === "true") return;
 
-  const pickVoice = (voices) =>
-    voices.find((voice) => /male|man/i.test(voice.name)) ||
-    voices.find((voice) => voice.lang?.startsWith("en")) ||
-    voices[0];
-
   const speak = () => {
     if (sessionStorage.getItem("weather-welcome-spoken") === "true") return;
-
-    const voices = window.speechSynthesis.getVoices();
     const utterance = new SpeechSynthesisUtterance(text);
+    const voices = window.speechSynthesis.getVoices();
     const preferred = voices.length ? pickVoice(voices) : null;
     if (preferred) {
       utterance.voice = preferred;
@@ -213,12 +231,6 @@ const speakOnceAfterInteraction = (text) => {
     utterance.pitch = 0.8;
     utterance.onend = () => {
       sessionStorage.setItem("weather-welcome-spoken", "true");
-      if (elements.welcomeHint) {
-        elements.welcomeHint.textContent = "";
-      }
-      if (elements.welcomeBanner) {
-        elements.welcomeBanner.style.display = "none";
-      }
     };
 
     window.speechSynthesis.cancel();
@@ -241,6 +253,30 @@ const speakOnceAfterInteraction = (text) => {
 
   document.addEventListener("pointerdown", handler, { once: true });
   document.addEventListener("keydown", handler, { once: true });
+};
+
+const normalizeName = (value) => value.trim().replace(/\s+/g, " ");
+
+const getWelcomeMessage = (name) => `Welcome, ${name}, to the Weather App.`;
+
+const updateWelcomeGreeting = (name) => {
+  if (!elements.welcomeGreeting) return;
+  elements.welcomeGreeting.textContent = name ? getWelcomeMessage(name) : "";
+};
+
+const handleWelcomeSubmit = (event) => {
+  event.preventDefault();
+  if (!elements.welcomeName) return;
+
+  const name = normalizeName(elements.welcomeName.value);
+  if (!name) {
+    updateWelcomeGreeting("");
+    return;
+  }
+
+  localStorage.setItem(STORAGE_KEYS.visitorName, name);
+  updateWelcomeGreeting(name);
+  speakText(getWelcomeMessage(name));
 };
 
 const formatOffset = (offsetSeconds) => {
@@ -1631,7 +1667,14 @@ const init = async () => {
   updateSearchButtonState();
   renderHistory();
   renderFavorites();
-  speakOnceAfterInteraction("Welcome to the weather dashboard.");
+  const storedName = localStorage.getItem(STORAGE_KEYS.visitorName);
+  if (storedName) {
+    if (elements.welcomeName) {
+      elements.welcomeName.value = storedName;
+    }
+    updateWelcomeGreeting(storedName);
+    speakOnceAfterInteraction(getWelcomeMessage(storedName));
+  }
 
   // Load last place or default
   const lastPlaceRaw = localStorage.getItem(STORAGE_KEYS.lastPlace);
@@ -1670,5 +1713,8 @@ elements.themeToggle.addEventListener("click", toggleTheme);
 elements.unitToggle.addEventListener("click", toggleUnits);
 elements.favoriteBtn.addEventListener("click", toggleFavorite);
 document.addEventListener("click", handleDocumentClick);
+if (elements.welcomeForm) {
+  elements.welcomeForm.addEventListener("submit", handleWelcomeSubmit);
+}
 
 init();

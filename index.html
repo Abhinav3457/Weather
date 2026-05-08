@@ -16,8 +16,19 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body data-weather="default">
-    <div id="welcomeBanner" class="welcome-banner" role="status" aria-live="polite">
-      Welcome to the Weather App! Tap anywhere to hear the welcome message.
+    <div class="welcome-banner" role="status" aria-live="polite">
+      <form id="welcomeForm" class="welcome-form">
+        <label class="sr-only" for="welcomeName">Your name</label>
+        <input
+          id="welcomeName"
+          name="welcomeName"
+          type="text"
+          placeholder="Enter your name..."
+          autocomplete="name"
+        />
+        <button class="btn btn-primary" type="submit">Say hi</button>
+      </form>
+      <p id="welcomeGreeting" class="welcome-greeting"></p>
     </div>
     <div class="weather-backdrop" aria-hidden="true">
       <div class="sky-band sky-band-a"></div>
@@ -103,7 +114,6 @@
         <div class="status-row">
           <p id="statusMessage" class="status-message" aria-live="polite"></p>
           <p id="errorMessage" class="error-message" role="alert" aria-live="assertive"></p>
-          <p id="welcomeHint" class="welcome-hint" aria-live="polite">Welcome to the Weather App! Tap anywhere to hear the welcome message.</p>
         </div>
 
         <!-- Search History & Favorites -->
@@ -271,6 +281,7 @@
         <section class="panel alerts-panel">
           <div class="section-head">
             <div>
+              
               <h3>Weather Alerts</h3>
               <p class="subtitle-small">Official alerts when available</p>
             </div>
