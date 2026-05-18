@@ -55,6 +55,10 @@
             <span class="icon">☀️</span>
             <span class="text">Light</span>
           </button>
+          <button id="settingsBtn" class="btn-icon-text" type="button" aria-haspopup="dialog" aria-controls="settingsModal" title="Settings">
+            <span class="icon">⚙️</span>
+            <span class="text">Settings</span>
+          </button>
           <button id="installBtn" class="btn-icon-text install-btn" type="button" hidden title="Install app">
             <span class="icon">+</span>
             <span class="text">Install</span>
@@ -73,9 +77,12 @@
               type="text"
               placeholder="Search any city worldwide..."
               autocomplete="off"
+              role="combobox"
               aria-autocomplete="list"
               aria-expanded="false"
+              aria-haspopup="listbox"
               aria-controls="suggestionsList"
+              aria-activedescendant=""
             />
             <ul id="suggestionsList" class="suggestions-list" role="listbox" aria-label="City suggestions"></ul>
           </div>
@@ -332,17 +339,39 @@
         </section>
       </main>
 
-      <!-- Footer -->
-      <footer class="footer">
-        <p>Live weather, forecast, and air quality data powered by <strong>OpenWeather API</strong> • Auto-refreshes every 10 minutes</p>
-      </footer>
-
       <!-- Detail Modal -->
       <div id="detailModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="modal-content">
           <button id="closeDetailModal" class="modal-close" aria-label="Close details">✕</button>
           <h2 id="detailModalTitle" class="modal-title"></h2>
           <div id="detailModalBody" class="modal-body"></div>
+        </div>
+      </div>
+
+      <div id="settingsModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="modal-content settings-modal">
+          <button id="closeSettingsModal" class="modal-close" aria-label="Close settings">✕</button>
+          <h2 id="settingsTitle" class="modal-title">Settings</h2>
+          <div class="modal-body">
+            <form id="settingsForm" class="settings-form">
+              <label class="settings-label" for="settingsTheme">Theme</label>
+              <select id="settingsTheme" name="theme" class="settings-select">
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+
+              <label class="settings-label" for="settingsUnits">Temperature</label>
+              <select id="settingsUnits" name="units" class="settings-select">
+                <option value="metric">Celsius</option>
+                <option value="imperial">Fahrenheit</option>
+              </select>
+
+              <label class="settings-toggle">
+                <input id="settingsAutoRefresh" type="checkbox" />
+                <span>Auto-refresh every 10 minutes</span>
+              </label>
+            </form>
+          </div>
         </div>
       </div>
 

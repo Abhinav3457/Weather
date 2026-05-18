@@ -9,6 +9,7 @@ const STORAGE_KEYS = {
   favorites: "weather-favorites-v3",
   theme: "weather-theme-v3",
   units: "weather-units-v3",
+  autoRefresh: "weather-auto-refresh-v1",
   lastPlace: "weather-last-place-v3",
 };
 
@@ -28,7 +29,14 @@ const elements = {
   refreshBtn: document.getElementById("refreshBtn"),
   unitToggle: document.getElementById("unitToggle"),
   themeToggle: document.getElementById("themeToggle"),
+  settingsBtn: document.getElementById("settingsBtn"),
   installBtn: document.getElementById("installBtn"),
+  settingsModal: document.getElementById("settingsModal"),
+  closeSettingsModal: document.getElementById("closeSettingsModal"),
+  settingsForm: document.getElementById("settingsForm"),
+  settingsTheme: document.getElementById("settingsTheme"),
+  settingsUnits: document.getElementById("settingsUnits"),
+  settingsAutoRefresh: document.getElementById("settingsAutoRefresh"),
   themeWeatherLabel: document.getElementById("themeWeatherLabel"),
   coordLabel: document.getElementById("coordLabel"),
   updatedLabel: document.getElementById("updatedLabel"),
@@ -78,6 +86,7 @@ const elements = {
 // ==================== Application State ====================
 const state = {
   units: localStorage.getItem(STORAGE_KEYS.units) || "metric",
+  autoRefresh: localStorage.getItem(STORAGE_KEYS.autoRefresh) !== "false",
   current: null,
   chart: null,
   aqiChart: null,
@@ -337,8 +346,9 @@ const getAqiSummary = (aqiResponse) => {
 
 // ==================== UI State Management ====================
 
-const setStatus = (msg) => {
+const setStatus = (msg, tone = "default") => {
   elements.status.textContent = msg;
+  elements.status.dataset.tone = !msg || tone === "default" ? "" : tone;
 };
 
 const setError = (msg) => {
@@ -356,6 +366,7 @@ const setLoading = (loading) => {
 
 const scheduleAutoRefresh = () => {
   clearInterval(state.refreshTimer);
+  if (!state.autoRefresh) return;
   state.refreshTimer = setInterval(() => {
     if (!state.currentCoords || document.hidden) return;
     loadWeatherByCoords(state.currentCoords.lat, state.currentCoords.lon, {
@@ -437,16 +448,21 @@ const renderSuggestions = () => {
   if (!state.suggestions.length) {
     list.classList.remove("open");
     elements.input.setAttribute("aria-expanded", "false");
+    elements.input.setAttribute("aria-activedescendant", "");
     return;
   }
 
   state.suggestions.forEach((item, idx) => {
     const li = document.createElement("li");
     const btn = document.createElement("button");
+    const optionId = `suggestion-${idx}`;
 
     btn.type = "button";
     btn.className = "suggestion-item";
+    btn.id = optionId;
     btn.setAttribute("role", "option");
+    btn.setAttribute("aria-selected", String(idx === state.activeSuggestionIndex));
+    btn.tabIndex = -1;
     btn.dataset.index = idx;
 
     if (idx === state.activeSuggestionIndex) btn.classList.add("active");
@@ -460,6 +476,9 @@ const renderSuggestions = () => {
 
   list.classList.add("open");
   elements.input.setAttribute("aria-expanded", "true");
+  const activeId =
+    state.activeSuggestionIndex >= 0 ? `suggestion-${state.activeSuggestionIndex}` : "";
+  elements.input.setAttribute("aria-activedescendant", activeId);
 };
 
 const hideSuggestions = () => {
@@ -467,6 +486,7 @@ const hideSuggestions = () => {
   state.activeSuggestionIndex = -1;
   elements.suggestionsList.classList.remove("open");
   elements.input.setAttribute("aria-expanded", "false");
+  elements.input.setAttribute("aria-activedescendant", "");
 };
 
 const refreshSuggestions = async (query) => {
@@ -1228,12 +1248,26 @@ const loadWeatherByCoords = async (lat, lon, options = {}) => {
   if (!silent) setStatus("Loading weather data...");
 
   try {
-    const [current, forecast, aqi, alerts] = await Promise.all([
+    const results = await Promise.allSettled([
       getCurrentWeather(lat, lon),
       getForecast(lat, lon),
       getAirQuality(lat, lon),
       getWeatherAlerts(lat, lon),
     ]);
+
+    const currentResult = results[0];
+    const forecastResult = results[1];
+    const aqiResult = results[2];
+    const alertsResult = results[3];
+
+    if (currentResult.status !== "fulfilled" || forecastResult.status !== "fulfilled") {
+      throw new Error("Unable to load weather data. Please try again.");
+    }
+
+    const current = currentResult.value;
+    const forecast = forecastResult.value;
+    const aqi = aqiResult.status === "fulfilled" ? aqiResult.value : null;
+    const alerts = alertsResult.status === "fulfilled" ? alertsResult.value : null;
 
     state.current = { current, forecast, aqi, alerts };
     state.weatherLabel = cityLabel || `${current.name}, ${current.sys.country}`;
@@ -1247,13 +1281,21 @@ const loadWeatherByCoords = async (lat, lon, options = {}) => {
     updateAlerts(alerts);
     updateChart(forecast, current.timezone);
 
-    setStatus(
-      `Updated ${formatTime(current.dt, current.timezone, {
-        hour: "numeric",
-        minute: "2-digit",
-        weekday: "short",
-      })} (${formatOffset(current.timezone)})`
-    );
+    const partialFailures = [];
+    if (aqiResult.status !== "fulfilled") partialFailures.push("air quality");
+    if (alertsResult.status !== "fulfilled") partialFailures.push("alerts");
+
+    const updatedLabel = `Updated ${formatTime(current.dt, current.timezone, {
+      hour: "numeric",
+      minute: "2-digit",
+      weekday: "short",
+    })} (${formatOffset(current.timezone)})`;
+
+    if (partialFailures.length) {
+      setStatus(`${updatedLabel}. Some data unavailable (${partialFailures.join(", ")}).`, "warn");
+    } else {
+      setStatus(updatedLabel, "success");
+    }
 
     if (addToHistory) saveHistory(state.weatherLabel);
     renderFavorites();
@@ -1387,13 +1429,13 @@ const handleDocumentClick = (e) => {
 const handleClearHistory = () => {
   setStoredList(STORAGE_KEYS.history, []);
   renderHistory();
-  setStatus("Recent searches cleared.");
+  setStatus("Recent searches cleared.", "success");
 };
 
 const handleClearFavorites = () => {
   setStoredList(STORAGE_KEYS.favorites, []);
   renderFavorites();
-  setStatus("Favorites cleared.");
+  setStatus("Favorites cleared.", "success");
 };
 
 const setVoiceListening = (listening) => {
@@ -1493,35 +1535,86 @@ const registerServiceWorker = () => {
   });
 };
 
-const toggleTheme = () => {
-  const current = document.documentElement.dataset.theme || "light";
-  const next = current === "dark" ? "light" : "dark";
+const setTheme = (next, options = {}) => {
+  const { persist = true } = options;
+  if (!next) return;
 
   document.documentElement.dataset.theme = next;
   const icon = next === "dark" ? "🌙" : "☀️";
   const text = next === "dark" ? "Dark" : "Light";
   elements.themeToggle.innerHTML = `<span class="icon">${icon}</span><span class="text">${text}</span>`;
-  localStorage.setItem(STORAGE_KEYS.theme, next);
+  if (persist) localStorage.setItem(STORAGE_KEYS.theme, next);
 
   if (state.current?.forecast) {
     updateChart(state.current.forecast, state.current.current.timezone);
   }
 };
 
-const toggleUnits = () => {
-  state.units = state.units === "metric" ? "imperial" : "metric";
-  localStorage.setItem(STORAGE_KEYS.units, state.units);
+const setUnits = (next, options = {}) => {
+  const { persist = true, reload = true } = options;
+  if (!next) return;
+
+  state.units = next;
+  if (persist) localStorage.setItem(STORAGE_KEYS.units, state.units);
 
   elements.unitToggle.innerHTML = `<span class="icon">${state.units === "metric" ? "°C" : "°F"}</span><span class="text">${state.units === "metric" ? "Celsius" : "Fahrenheit"}</span>`;
   elements.tempUnitSymbol.textContent = unitSymbol();
   elements.feelsUnitSymbol.textContent = unitSymbol();
 
-  if (state.currentCoords) {
+  if (reload && state.currentCoords) {
     loadWeatherByCoords(state.currentCoords.lat, state.currentCoords.lon, {
       addToHistory: false,
       cityLabel: state.weatherLabel,
     });
   }
+};
+
+const setAutoRefresh = (enabled, options = {}) => {
+  const { persist = true } = options;
+  state.autoRefresh = enabled;
+  if (persist) localStorage.setItem(STORAGE_KEYS.autoRefresh, String(enabled));
+  if (enabled) {
+    scheduleAutoRefresh();
+  } else {
+    clearInterval(state.refreshTimer);
+  }
+};
+
+const toggleTheme = () => {
+  const current = document.documentElement.dataset.theme || "light";
+  const next = current === "dark" ? "light" : "dark";
+  setTheme(next);
+};
+
+const toggleUnits = () => {
+  const next = state.units === "metric" ? "imperial" : "metric";
+  setUnits(next);
+};
+
+const syncSettingsForm = () => {
+  if (!elements.settingsForm) return;
+  elements.settingsTheme.value = document.documentElement.dataset.theme || "light";
+  elements.settingsUnits.value = state.units;
+  elements.settingsAutoRefresh.checked = state.autoRefresh;
+};
+
+const openSettingsModal = () => {
+  if (!elements.settingsModal) return;
+  syncSettingsForm();
+  elements.settingsModal.style.display = "flex";
+};
+
+const closeSettingsModal = () => {
+  if (!elements.settingsModal) return;
+  elements.settingsModal.style.display = "none";
+};
+
+const handleSettingsChange = () => {
+  if (!elements.settingsForm) return;
+  setTheme(elements.settingsTheme.value);
+  setUnits(elements.settingsUnits.value);
+  setAutoRefresh(elements.settingsAutoRefresh.checked);
+  setStatus("Settings updated.", "success");
 };
 
 // ==================== Modal Management ====================
@@ -1561,15 +1654,11 @@ document.addEventListener("click", (e) => {
 const init = async () => {
   // Set initial theme
   const theme = localStorage.getItem(STORAGE_KEYS.theme) || "light";
-  document.documentElement.dataset.theme = theme;
-  const themeIcon = theme === "dark" ? "🌙" : "☀️";
-  const themeText = theme === "dark" ? "Dark" : "Light";
-  elements.themeToggle.innerHTML = `<span class="icon">${themeIcon}</span><span class="text">${themeText}</span>`;
+  setTheme(theme, { persist: false });
 
   // Set unit toggle
-  const unitText = state.units === "metric" ? "Celsius" : "Fahrenheit";
-  const unitSymb = state.units === "metric" ? "°C" : "°F";
-  elements.unitToggle.innerHTML = `<span class="icon">${unitSymb}</span><span class="text">${unitText}</span>`;
+  setUnits(state.units, { persist: false, reload: false });
+  setAutoRefresh(state.autoRefresh, { persist: false });
 
   setupInstallPrompt();
   registerServiceWorker();
@@ -1615,5 +1704,19 @@ elements.themeToggle.addEventListener("click", toggleTheme);
 elements.unitToggle.addEventListener("click", toggleUnits);
 elements.favoriteBtn.addEventListener("click", toggleFavorite);
 document.addEventListener("click", handleDocumentClick);
+if (elements.settingsBtn) {
+  elements.settingsBtn.addEventListener("click", openSettingsModal);
+}
+if (elements.closeSettingsModal) {
+  elements.closeSettingsModal.addEventListener("click", closeSettingsModal);
+}
+if (elements.settingsModal) {
+  elements.settingsModal.addEventListener("click", (e) => {
+    if (e.target === elements.settingsModal) closeSettingsModal();
+  });
+}
+if (elements.settingsForm) {
+  elements.settingsForm.addEventListener("change", handleSettingsChange);
+}
 
 init();
