@@ -16,20 +16,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body data-weather="default">
-    <div class="welcome-banner" role="status" aria-live="polite">
-      <form id="welcomeForm" class="welcome-form">
-        <label class="sr-only" for="welcomeName">Your name</label>
-        <input
-          id="welcomeName"
-          name="welcomeName"
-          type="text"
-          placeholder="Enter your name..."
-          autocomplete="name"
-        />
-        <button class="btn btn-primary" type="submit">Say hi</button>
-      </form>
-      <p id="welcomeGreeting" class="welcome-greeting"></p>
-    </div>
     <div class="weather-backdrop" aria-hidden="true">
       <div class="sky-band sky-band-a"></div>
       <div class="sky-band sky-band-b"></div>
@@ -274,7 +260,24 @@
           <div class="section-head">
             <h3>Weather Suggestions</h3>
           </div>
-          <div id="weatherSuggestions" class="weather-suggestions"></div>
+          <div id="weatherSuggestions" class="weather-suggestions">
+            <div class="suggestion-card">
+              <strong>Carry an Umbrella</strong>
+              <span>Moody clouds are rehearsing. Keep a compact umbrella ready for quick, cinematic showers.</span>
+            </div>
+            <div class="suggestion-card">
+              <strong>Golden Hour Walk</strong>
+              <span>Light winds and soft skies. Perfect time for a 20-minute loop and a photo or two.</span>
+            </div>
+            <div class="suggestion-card">
+              <strong>Hydration Check</strong>
+              <span>Dry air ahead. A bottle and a lip balm keep the desert vibes pleasant, not punishing.</span>
+            </div>
+            <div class="suggestion-card">
+              <strong>Layer Like a Pro</strong>
+              <span>Temperature swings tonight. Go with a tee, a light jacket, and options.</span>
+            </div>
+          </div>
         </section>
 
         <!-- Weather Alerts -->

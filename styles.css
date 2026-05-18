@@ -72,57 +72,6 @@ body::before {
   z-index: 0;
 }
 
-.welcome-banner {
-  position: relative;
-  z-index: 3;
-  margin: 12px auto 0;
-  width: min(1200px, calc(100% - 32px));
-  padding: 10px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-primary);
-  font-size: 0.9rem;
-  font-weight: 600;
-  box-shadow: var(--shadow-md);
-}
-
-.welcome-form {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px;
-  align-items: center;
-}
-
-.welcome-form input {
-  width: 100%;
-  border: 1px solid var(--border);
-  background: var(--surface-alt);
-  color: var(--text-primary);
-  border-radius: 10px;
-  padding: 10px 14px;
-  font-size: 0.9rem;
-  font-family: inherit;
-  transition: all 0.2s ease;
-}
-
-.welcome-form input::placeholder {
-  color: var(--text-muted);
-}
-
-.welcome-form input:focus {
-  outline: none;
-  border-color: var(--accent);
-  background: var(--surface);
-  box-shadow: 0 0 0 3px var(--accent-lighter);
-}
-
-.welcome-greeting {
-  margin: 8px 0 0;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
-
 /* Weather Effects Container */
 .weather-effects {
   position: fixed;
@@ -693,7 +642,7 @@ body::before {
 }
 
 .forecast-panel {
-  grid-column: span 8;
+  grid-column: span 12;
   padding: 24px;
 }
 
