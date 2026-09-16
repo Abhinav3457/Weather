@@ -1,35 +1,313 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Atmosphere Desk - Weather Intelligence</title>
+    <title>Atmosphere Desk — Weather Intelligence</title>
+    <meta
+      name="description"
+      content="Atmosphere Desk is a fast, installable weather dashboard: live conditions, 5-day outlook, 24-hour trend, air quality breakdown, and official alerts for any city on Earth."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="application-name" content="Atmosphere Desk" />
+    <meta name="apple-mobile-web-app-title" content="Weather Desk" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <meta name="theme-color" content="#0369a1" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b1220" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Atmosphere Desk — Weather Intelligence" />
+    <meta
+      property="og:description"
+      content="Live conditions, 5-day outlook, air quality and official alerts for any city — no account needed."
+    />
+    <meta property="og:image" content="icon-512.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="alternate icon" href="favicon.ico" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="manifest" href="manifest.json" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="preconnect" href="https://api.openweathermap.org" crossorigin />
+    <link rel="preconnect" href="https://api.weather.gov" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Sora:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="manifest" href="manifest.json" />
-    <meta name="theme-color" content="#0369a1" />
+
     <link rel="stylesheet" href="styles.css" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Apply the saved theme before first paint so there is no flash of the wrong palette. -->
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem("weather-theme-v3");
+          if (!theme) {
+            theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          }
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.style.colorScheme = theme;
+        } catch (error) {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
+
+    <!-- Chart.js is an enhancement: the dashboard renders an inline SVG fallback when it is unavailable. -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+    <script src="app.js" defer></script>
   </head>
   <body data-weather="default">
+    <a class="skip-link" href="#app">Skip to dashboard</a>
+
+    <!-- Reusable inline icon sprite: keeps weather/sticker icons crisp and offline-safe. -->
+    <svg class="sprite" aria-hidden="true" focusable="false" width="0" height="0">
+      <defs>
+        <g id="wx-cloud-shape">
+          <circle cx="17.5" cy="27" r="9.5" />
+          <circle cx="29" cy="23" r="12" />
+          <rect x="8" y="29" width="32" height="9.5" rx="4.75" />
+        </g>
+        <g id="wx-rain-lines" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round">
+          <path d="M17 41.5l-2.5 4.8" />
+          <path d="M25.5 41.5l-2.5 4.8" />
+          <path d="M34 41.5l-2.5 4.8" />
+        </g>
+      </defs>
+
+      <symbol id="wx-clear-day" viewBox="0 0 48 48">
+        <circle cx="24" cy="24" r="9.5" />
+        <g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+          <path d="M24 3.5v5.5" />
+          <path d="M24 39v5.5" />
+          <path d="M3.5 24H9" />
+          <path d="M39 24h5.5" />
+          <path d="M9.5 9.5l3.9 3.9" />
+          <path d="M34.6 34.6l3.9 3.9" />
+          <path d="M38.5 9.5l-3.9 3.9" />
+          <path d="M13.4 34.6l-3.9 3.9" />
+        </g>
+      </symbol>
+      <symbol id="wx-clear-night" viewBox="0 0 48 48">
+        <path d="M31.5 30.8A13.6 13.6 0 0 1 17.2 8.6a14.6 14.6 0 1 0 19.9 19.8 13.7 13.7 0 0 1-5.6 2.4Z" />
+        <circle cx="35.5" cy="12.5" r="2.4" />
+        <circle cx="41" cy="19.5" r="1.5" />
+      </symbol>
+      <symbol id="wx-clouds-day" viewBox="0 0 48 48">
+        <circle cx="33" cy="15" r="7" />
+        <g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+          <path d="M33 3.5v3.4" />
+          <path d="M44.5 15h-3.4" />
+          <path d="M41.1 6.9l-2.4 2.4" />
+          <path d="M41.1 23.1l-2.4-2.4" />
+        </g>
+        <use href="#wx-cloud-shape" opacity="0.95" />
+      </symbol>
+      <symbol id="wx-clouds-night" viewBox="0 0 48 48">
+        <path d="M40 20.5a9 9 0 0 1-9.6-9.4 9.6 9.6 0 1 0 12.4 12.4 9 9 0 0 1-2.8-3Z" />
+        <use href="#wx-cloud-shape" />
+      </symbol>
+      <symbol id="wx-rain" viewBox="0 0 48 48">
+        <use href="#wx-cloud-shape" />
+        <use href="#wx-rain-lines" />
+      </symbol>
+      <symbol id="wx-drizzle" viewBox="0 0 48 48">
+        <use href="#wx-cloud-shape" />
+        <g>
+          <circle cx="16" cy="44" r="2" />
+          <circle cx="24.5" cy="45" r="2" />
+          <circle cx="33" cy="44" r="2" />
+        </g>
+      </symbol>
+      <symbol id="wx-thunderstorm" viewBox="0 0 48 48">
+        <use href="#wx-cloud-shape" />
+        <path d="M26 39.5h-4.6l3.1-6.4h-4.9l7.8-9.4h4.5l-3.2 7.1h4.9z" />
+      </symbol>
+      <symbol id="wx-snow" viewBox="0 0 48 48">
+        <use href="#wx-cloud-shape" />
+        <g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+          <path d="M16 40.5v6.5M12.8 42.2l6.4 3.1M19.2 42.2l-6.4 3.1" />
+          <path d="M32 40.5v6.5M28.8 42.2l6.4 3.1M35.2 42.2l-6.4 3.1" />
+        </g>
+      </symbol>
+      <symbol id="wx-mist" viewBox="0 0 48 48">
+        <use href="#wx-cloud-shape" opacity="0.6" />
+        <g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+          <path d="M8 43h26" />
+          <path d="M14 48h26" />
+        </g>
+      </symbol>
+      <symbol id="wx-squall" viewBox="0 0 48 48">
+        <use href="#wx-cloud-shape" opacity="0.85" />
+        <g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round">
+          <path d="M6 41.5h22.5a4.5 4.5 0 1 0-3.4-7.5" />
+          <path d="M11 47.5h18a4 4 0 1 1-3 6.5" />
+        </g>
+      </symbol>
+
+      <symbol id="i-search" viewBox="0 0 24 24">
+        <path
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          d="M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13ZM15.4 15.4 20 20"
+        />
+      </symbol>
+      <symbol id="i-mic" viewBox="0 0 24 24">
+        <path
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          d="M12 3.5a2.6 2.6 0 0 1 2.6 2.6v5a2.6 2.6 0 1 1-5.2 0v-5A2.6 2.6 0 0 1 12 3.5ZM5 11a7 7 0 0 0 14 0M12 18v3.2"
+        />
+      </symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24">
+        <path
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11Zm0-8.4a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2Z"
+        />
+      </symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24">
+        <path
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          d="M20 12a8 8 0 1 1-2.6-5.9M20 3.5V8h-4.5"
+        />
+      </symbol>
+      <symbol id="i-share" viewBox="0 0 24 24">
+        <path
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          d="M12 15.5V3.8m0 0L8.2 7.6M12 3.8l3.8 3.8M4.5 13v5.2A2.3 2.3 0 0 0 6.8 20.5h10.4a2.3 2.3 0 0 0 2.3-2.3V13"
+        />
+      </symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="4.2" fill="currentColor" />
+        <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+          <path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M5 5l1.7 1.7M17.3 17.3 19 19M19 5l-1.7 1.7M6.7 17.3 5 19" />
+        </g>
+      </symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M20.5 14.6A9 9 0 0 1 9.4 3.5a9.3 9.3 0 1 0 11.1 11.1Z" />
+      </symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24">
+        <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M4 7h9M17.5 7H20M4 17h3.5M12 17h8" />
+          <circle cx="15" cy="7" r="2.4" />
+          <circle cx="10" cy="17" r="2.4" />
+        </g>
+      </symbol>
+      <symbol id="i-download" viewBox="0 0 24 24">
+        <path
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          d="M12 3.5v11m0 0 4.2-4.2M12 14.5 7.8 10.3M4.5 16.5v2A2.5 2.5 0 0 0 7 21h10a2.5 2.5 0 0 0 2.5-2.5v-2"
+        />
+      </symbol>
+      <symbol id="i-star" viewBox="0 0 24 24">
+        <path
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linejoin="round"
+          d="m12 3.6 2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9L3.5 9.8l5.9-.8z"
+        />
+      </symbol>
+      <symbol id="i-star-filled" viewBox="0 0 24 24">
+        <path
+          fill="currentColor"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linejoin="round"
+          d="m12 3.6 2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9L3.5 9.8l5.9-.8z"
+        />
+      </symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24">
+        <path
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M12 3.8 21.2 20H2.8ZM12 9.5v4.6M12 17.2h.01"
+        />
+      </symbol>
+      <symbol id="i-close" viewBox="0 0 24 24">
+        <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="m6 6 12 12M18 6 6 18" />
+      </symbol>
+      <symbol id="i-key" viewBox="0 0 24 24">
+        <path
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          d="M15.4 3.6a5.4 5.4 0 1 0-3.2 9.8l-.9 1.1H9l-.9 1.4H6l-1 1.4v2.1h2.4l1-1.3h2.6l.9-1.4h1.6l.8-1.5a5.4 5.4 0 0 0 3.1-9.6Zm1.9 3.9h.01"
+        />
+      </symbol>
+      <symbol id="i-wind" viewBox="0 0 24 24">
+        <path
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          d="M3 8.5h10.2a3 3 0 1 0-2.7-4.2M3 15.5h13a3.2 3.2 0 1 1-2.9 4.5M3 12h7"
+        />
+      </symbol>
+      <symbol id="i-brand" viewBox="0 0 48 48">
+        <circle cx="31" cy="16" r="7.5" fill="#f59e0b" />
+        <g fill="none" stroke="#f59e0b" stroke-width="2.4" stroke-linecap="round">
+          <path d="M31 3.5v3.2M43.5 16h-3.2M40.4 6.6l-2.3 2.3M40.4 25.4l-2.3-2.3" />
+        </g>
+        <g fill="currentColor">
+          <circle cx="14" cy="28" r="8.5" />
+          <circle cx="25" cy="24.5" r="10.5" />
+          <rect x="5.5" y="29" width="30" height="9" rx="4.5" />
+        </g>
+        <g fill="none" stroke="#38bdf8" stroke-width="2.8" stroke-linecap="round">
+          <path d="m14 41-2 4.4M22.5 41l-2 4.4M31 41l-2 4.4" />
+        </g>
+      </symbol>
+    </svg>
+
     <div class="weather-backdrop" aria-hidden="true">
       <div class="sky-band sky-band-a"></div>
       <div class="sky-band sky-band-b"></div>
       <div class="sky-horizon"></div>
     </div>
+    <div class="weather-effects" id="weatherEffects" aria-hidden="true" data-effect="none"></div>
 
-    <div class="app" id="app">
+    <div class="app" id="app" tabindex="-1">
       <!-- Header -->
       <header class="panel topbar">
         <div class="topbar-branding">
-          <p class="eyebrow live-pill"><span></span> Live Weather Intelligence</p>
-          <h1 class="dashboard-title">Atmosphere Desk</h1>
+          <p class="eyebrow live-pill">
+            <span class="live-dot" aria-hidden="true"></span>
+            <span id="livePillLabel">Live weather intelligence</span>
+          </p>
+          <h1 class="dashboard-title">
+            <svg class="brand-mark" aria-hidden="true"><use href="#i-brand"></use></svg>
+            Atmosphere Desk
+          </h1>
           <p class="subtitle">
-            Real-time conditions, forecasts, and air quality insights
+            Real-time conditions, 24-hour trends, air quality and official alerts — for any city on Earth.
           </p>
           <div class="hero-metrics" aria-label="Live weather summary">
             <div>
@@ -44,39 +322,60 @@
               <span>Updated</span>
               <strong id="updatedLabel">--</strong>
             </div>
+            <div>
+              <span>Source</span>
+              <strong id="dataSourceLabel">--</strong>
+            </div>
           </div>
         </div>
         <div class="topbar-actions">
           <button id="unitToggle" class="btn-icon-text" type="button" aria-pressed="false" title="Toggle temperature unit">
-            <span class="icon">°C</span>
+            <span class="icon" aria-hidden="true">°C</span>
             <span class="text">Celsius</span>
           </button>
           <button id="themeToggle" class="btn-icon-text" type="button" aria-pressed="false" title="Toggle dark mode">
-            <span class="icon">☀️</span>
+            <svg class="ico" aria-hidden="true"><use href="#i-sun"></use></svg>
             <span class="text">Light</span>
           </button>
+          <button id="shareBtn" class="btn-icon-text" type="button" title="Copy a link to this location">
+            <svg class="ico" aria-hidden="true"><use href="#i-share"></use></svg>
+            <span class="text">Share</span>
+          </button>
           <button id="settingsBtn" class="btn-icon-text" type="button" aria-haspopup="dialog" aria-controls="settingsModal" title="Settings">
-            <span class="icon">⚙️</span>
+            <svg class="ico" aria-hidden="true"><use href="#i-sliders"></use></svg>
             <span class="text">Settings</span>
           </button>
-          <button id="installBtn" class="btn-icon-text install-btn" type="button" hidden title="Install app">
-            <span class="icon">+</span>
+          <button id="installBtn" class="btn-icon-text install-btn" type="button" hidden title="Install this app">
+            <svg class="ico" aria-hidden="true"><use href="#i-download"></use></svg>
             <span class="text">Install</span>
           </button>
         </div>
       </header>
 
       <!-- Search Panel -->
-      <section class="panel search-panel">
-        <form id="searchForm" class="search-form">
+      <section class="panel search-panel" aria-labelledby="searchHeading">
+        <h2 id="searchHeading" class="sr-only">Find a location</h2>
+
+        <div id="dataBanner" class="banner" hidden>
+          <p id="dataBannerText" class="banner-text"></p>
+          <div class="banner-buttons">
+            <button id="dataBannerAction" class="banner-action" type="button" hidden></button>
+            <button id="dataBannerDismiss" class="banner-dismiss" type="button" aria-label="Dismiss this notice" title="Dismiss">×</button>
+          </div>
+        </div>
+
+        <form id="searchForm" class="search-form" autocomplete="off">
           <div class="search-input-wrap">
             <label class="sr-only" for="cityInput">Search city</label>
+            <svg class="search-glyph" aria-hidden="true"><use href="#i-search"></use></svg>
             <input
               id="cityInput"
               name="city"
               type="text"
-              placeholder="Search any city worldwide..."
+              placeholder="Search any city worldwide…"
               autocomplete="off"
+              spellcheck="false"
+              enterkeyhint="search"
               role="combobox"
               aria-autocomplete="list"
               aria-expanded="false"
@@ -89,31 +388,38 @@
           <button id="searchBtn" class="btn btn-primary" type="submit">
             <span class="btn-content">Search</span>
           </button>
-          <button id="voiceBtn" class="btn btn-voice" type="button" title="Search by voice" aria-label="Search by voice">
-            <span class="voice-dot" aria-hidden="true"></span>
+          <button id="voiceBtn" class="btn btn-voice" type="button" title="Search by voice" aria-label="Search by voice" aria-pressed="false">
+            <svg class="ico" aria-hidden="true"><use href="#i-mic"></use></svg>
             <span class="btn-content">Voice</span>
+            <span class="voice-dot" aria-hidden="true"></span>
           </button>
         </form>
 
         <div class="quick-actions">
           <button id="locateBtn" class="btn btn-secondary" type="button" title="Use your current location">
-            📍 Current Location
+            <svg class="ico" aria-hidden="true"><use href="#i-pin"></use></svg>
+            <span>Current location</span>
           </button>
-          <button id="refreshBtn" class="btn btn-ghost" type="button" title="Refresh weather data">
-            ↻ Refresh
+          <button id="refreshBtn" class="btn btn-ghost" type="button" title="Refresh weather data (R)">
+            <svg class="ico" aria-hidden="true"><use href="#i-refresh"></use></svg>
+            <span>Refresh</span>
           </button>
+          <p class="welcome-hint">
+            <kbd>/</kbd> search<span aria-hidden="true">·</span><kbd>?</kbd> shortcuts
+          </p>
         </div>
 
         <div class="status-row">
-          <p id="statusMessage" class="status-message" aria-live="polite"></p>
+          <p id="statusMessage" class="status-message" role="status" aria-live="polite"></p>
           <p id="errorMessage" class="error-message" role="alert" aria-live="assertive"></p>
+          <button id="errorRetryBtn" class="chip-action retry-action" type="button" hidden>Try again</button>
         </div>
 
-        <!-- Search History & Favorites -->
+        <!-- Search history & favorites -->
         <div class="chip-group-wrap">
           <div class="chip-group">
             <div class="chip-head">
-              <h3 class="chip-title">Recent Searches</h3>
+              <h3 class="chip-title">Recent searches</h3>
               <button id="clearHistoryBtn" class="chip-action" type="button">Clear</button>
             </div>
             <div id="historyList" class="chip-list"></div>
@@ -131,10 +437,10 @@
       <!-- Main Dashboard Grid -->
       <main class="dashboard-grid">
         <!-- Current Weather Card -->
-        <section class="panel current-weather">
+        <section class="panel current-weather" aria-labelledby="currentCity">
           <div class="section-head">
             <div>
-              <p class="eyebrow">Current Conditions</p>
+              <p class="eyebrow">Current conditions</p>
               <h2 id="currentCity" class="location-title">--</h2>
               <p id="currentTime" class="timestamp">--</p>
             </div>
@@ -142,11 +448,11 @@
               id="favoriteBtn"
               class="btn-favorite"
               type="button"
-              title="Save as favorite"
+              title="Save this city as a favorite (F)"
               aria-pressed="false"
               aria-label="Save city as favorite"
             >
-              ★
+              <svg class="ico" aria-hidden="true"><use href="#i-star"></use></svg>
             </button>
           </div>
 
@@ -158,7 +464,8 @@
                 <div class="stage-cloud stage-cloud-b"></div>
                 <div class="stage-rain"></div>
                 <div class="stage-snow"></div>
-                <img id="currentIcon" alt="" class="weather-icon-large" />
+                <svg class="wx-ico wx-ico-large" id="currentIcon"><use href="#wx-clear-day" id="currentIconUse"></use></svg>
+                <span class="wx-ico-caption" id="currentIconCaption">No data yet</span>
               </div>
               <div class="temp-info">
                 <p class="main-temp">
@@ -167,81 +474,129 @@
                 <p id="currentCondition" class="condition">--</p>
                 <p class="feels-like">
                   Feels like <span id="currentFeels">--</span><span id="feelsUnitSymbol">°C</span>
+                  <span id="feelsNote" class="feels-note"></span>
                 </p>
               </div>
             </div>
+
             <p id="weatherNarrative" class="weather-narrative">
               Search a city to see live conditions and a matching weather theme.
             </p>
 
             <div class="summary-grid">
-              <div class="summary-item" data-tooltip="Highest and lowest temperature today">
+              <div class="summary-item" data-detail="highLow" tabindex="0" role="button">
                 <span class="label">High / Low</span>
                 <strong id="currentHighLow">--</strong>
               </div>
-              <div class="summary-item" data-tooltip="Water vapor in the air">
+              <div class="summary-item" data-detail="humidity" tabindex="0" role="button">
                 <span class="label">Humidity</span>
                 <strong id="currentHumidity">--</strong>
               </div>
-              <div class="summary-item" data-tooltip="Wind speed and conditions">
+              <div class="summary-item" data-detail="wind" tabindex="0" role="button">
                 <span class="label">Wind</span>
                 <strong id="currentWind">--</strong>
               </div>
-              <div class="summary-item" data-tooltip="Probability of precipitation">
-                <span class="label">Rain Chance</span>
+              <div class="summary-item" data-detail="rain" tabindex="0" role="button">
+                <span class="label">Rain chance</span>
                 <strong id="currentRainChance">--</strong>
               </div>
             </div>
+
+            <p id="rainTiming" class="rain-timing">--</p>
           </div>
         </section>
 
         <!-- Details Panel -->
-        <section class="panel detail-panel">
+        <section class="panel detail-panel" aria-labelledby="detailsHeading">
           <div class="section-head">
-            <h3>Today's Details</h3>
+            <h2 id="detailsHeading">Today&rsquo;s details</h2>
           </div>
           <div class="detail-grid">
-            <article class="detail-card" data-tooltip="Atmospheric pressure (hPa)">
+            <article class="detail-card" data-detail="pressure" tabindex="0" role="button">
               <p class="detail-label">Pressure</p>
               <p id="detailPressure" class="detail-value">--</p>
             </article>
-            <article class="detail-card" data-tooltip="Distance of visibility (km/mi)">
+            <article class="detail-card" data-detail="visibility" tabindex="0" role="button">
               <p class="detail-label">Visibility</p>
               <p id="detailVisibility" class="detail-value">--</p>
             </article>
-            <article class="detail-card" data-tooltip="Sky coverage percentage">
-              <p class="detail-label">Cloudiness</p>
+            <article class="detail-card" data-detail="clouds" tabindex="0" role="button">
+              <p class="detail-label">Cloud cover</p>
               <p id="detailClouds" class="detail-value">--</p>
             </article>
-            <article class="detail-card sun-card" data-tooltip="Sunrise time in local timezone">
-              <span class="detail-icon sunrise-icon" aria-hidden="true"></span>
-              <p class="detail-label">Sunrise</p>
-              <p id="detailSunrise" class="detail-value">--</p>
+            <article class="detail-card" data-detail="dew" tabindex="0" role="button">
+              <p class="detail-label">Dew point</p>
+              <p id="detailDewPoint" class="detail-value">--</p>
             </article>
-            <article class="detail-card sun-card" data-tooltip="Sunset time in local timezone">
-              <span class="detail-icon sunset-icon" aria-hidden="true"></span>
-              <p class="detail-label">Sunset</p>
-              <p id="detailSunset" class="detail-value">--</p>
+            <article class="detail-card" data-detail="gust" tabindex="0" role="button">
+              <p class="detail-label">Wind gust</p>
+              <p id="detailGust" class="detail-value">--</p>
             </article>
-            <article class="detail-card" data-tooltip="Local timezone offset from UTC">
+            <article class="detail-card" data-detail="precip" tabindex="0" role="button">
+              <p class="detail-label">24h precip</p>
+              <p id="detailPrecip" class="detail-value">--</p>
+            </article>
+            <article class="detail-card" data-detail="timezone" tabindex="0" role="button">
               <p class="detail-label">Timezone</p>
               <p id="detailTimezone" class="detail-value">--</p>
             </article>
-            <article class="detail-card" data-tooltip="Wind compass direction">
-              <p class="detail-label">Wind Direction</p>
-              <p id="detailWindDirection" class="detail-value">--</p>
-            </article>
-            <article class="detail-card" data-tooltip="Latest OpenWeather observation time">
+            <article class="detail-card" data-detail="observed" tabindex="0" role="button">
               <p class="detail-label">Observed</p>
               <p id="detailObserved" class="detail-value">--</p>
             </article>
           </div>
+
+          <div class="sun-arc-card">
+            <div class="sun-arc-head">
+              <p class="detail-label">Daylight</p>
+              <p id="dayPhaseLabel" class="day-phase">--</p>
+            </div>
+            <svg class="sun-arc" viewBox="0 0 148 74" role="img" aria-labelledby="sunArcTitle">
+              <title id="sunArcTitle">Arc of the sun between sunrise and sunset</title>
+              <path class="sun-arc-track" d="M8 66Q74 -2 140 66" />
+              <path class="sun-arc-fill" id="sunArcFill" d="M8 66Q74 -2 140 66" />
+              <line class="sun-arc-horizon" x1="2" y1="66" x2="146" y2="66" />
+              <circle class="sun-arc-dot" id="sunArcDot" cx="74" cy="8" r="5.5" />
+            </svg>
+            <div class="sun-arc-foot">
+              <p>
+                <span class="detail-label">Sunrise</span>
+                <strong id="detailSunrise">--</strong>
+              </p>
+              <p>
+                <span class="detail-label">Sunset</span>
+                <strong id="detailSunset">--</strong>
+              </p>
+            </div>
+          </div>
+
+          <div class="compass-card">
+            <svg class="compass" viewBox="0 0 120 120" role="img" aria-labelledby="compassTitle">
+              <title id="compassTitle">Wind direction compass</title>
+              <circle class="compass-ring" cx="60" cy="60" r="46" />
+              <g class="compass-ticks" aria-hidden="true"></g>
+              <text class="compass-label compass-n" x="60" y="15">N</text>
+              <text class="compass-label" x="108" y="64">E</text>
+              <text class="compass-label" x="60" y="114">S</text>
+              <text class="compass-label" x="12" y="64">W</text>
+              <g class="compass-needle" id="compassNeedle">
+                <path d="M60 22 66 60 60 54 54 60Z" />
+                <circle cx="60" cy="60" r="4.5" class="compass-hub" />
+              </g>
+            </svg>
+            <div class="compass-meta">
+              <p class="detail-label">Wind bearing</p>
+              <strong id="detailWindDirection">--</strong>
+              <p id="compassNote" class="compass-note">--</p>
+            </div>
+          </div>
         </section>
 
         <!-- Air Quality Panel -->
-        <section class="panel aqi-panel">
+        <section class="panel aqi-panel" aria-labelledby="aqiHeading">
           <div class="section-head">
-            <h3>Air Quality Index</h3>
+            <h2 id="aqiHeading">Air quality</h2>
+            <p class="subtitle-small">US EPA scale</p>
           </div>
           <div class="aqi-content">
             <div class="aqi-display">
@@ -255,132 +610,204 @@
               </div>
             </div>
             <div class="aqi-chart-wrap">
-              <canvas id="aqiChart" aria-label="Air quality level chart"></canvas>
+              <canvas id="aqiChart" role="img" aria-label="Air quality level around the dial"></canvas>
+              <div id="aqiFallback" class="aqi-fallback" hidden></div>
             </div>
+            <div id="aqiPollutants" class="pollutant-list" aria-label="Pollutant concentrations"></div>
             <p id="aqiAdvice" class="aqi-advice">--</p>
             <div id="aqiHealthGrid" class="aqi-health-grid" aria-label="Air quality health guidance"></div>
           </div>
         </section>
 
         <!-- Weather Suggestions -->
-        <section class="panel suggestion-panel">
+        <section class="panel suggestion-panel" aria-labelledby="suggestionsHeading">
           <div class="section-head">
-            <h3>Weather Suggestions</h3>
-          </div>
-          <div id="weatherSuggestions" class="weather-suggestions">
-            <div class="suggestion-card">
-              <strong>Carry an Umbrella</strong>
-              <span>Moody clouds are rehearsing. Keep a compact umbrella ready for quick, cinematic showers.</span>
-            </div>
-            <div class="suggestion-card">
-              <strong>Golden Hour Walk</strong>
-              <span>Light winds and soft skies. Perfect time for a 20-minute loop and a photo or two.</span>
-            </div>
-            <div class="suggestion-card">
-              <strong>Hydration Check</strong>
-              <span>Dry air ahead. A bottle and a lip balm keep the desert vibes pleasant, not punishing.</span>
-            </div>
-            <div class="suggestion-card">
-              <strong>Layer Like a Pro</strong>
-              <span>Temperature swings tonight. Go with a tee, a light jacket, and options.</span>
+            <div>
+              <h2 id="suggestionsHeading">What to do with this weather</h2>
+              <p class="subtitle-small">Advice generated from the live numbers</p>
             </div>
           </div>
+          <div id="weatherSuggestions" class="weather-suggestions"></div>
         </section>
 
         <!-- Weather Alerts -->
-        <section class="panel alerts-panel">
+        <section class="panel alerts-panel" aria-labelledby="alertsHeading">
           <div class="section-head">
             <div>
-              
-              <h3>Weather Alerts</h3>
-              <p class="subtitle-small">Official alerts when available</p>
+              <h2 id="alertsHeading">Weather alerts</h2>
+              <p class="subtitle-small" id="alertsSource">Official alerts where available</p>
             </div>
+            <span id="alertsBadge" class="count-badge" hidden>0</span>
           </div>
           <div id="alertsList" class="alerts-list"></div>
         </section>
 
         <!-- Favorite City Dashboard -->
-        <section class="panel favorites-dashboard-panel">
+        <section class="panel favorites-dashboard-panel" aria-labelledby="favDashHeading">
           <div class="section-head">
             <div>
-              <h3>Favorite Cities</h3>
-              <p class="subtitle-small">Quick live cards for saved places</p>
+              <h2 id="favDashHeading">Favorite cities</h2>
+              <p class="subtitle-small">Live snapshot of every saved place</p>
             </div>
+            <button id="favoriteDashboardRefresh" class="chip-action" type="button">Reload</button>
           </div>
           <div id="favoriteDashboard" class="favorite-dashboard"></div>
         </section>
 
         <!-- 5-Day Forecast -->
-        <section class="panel forecast-panel">
+        <section class="panel forecast-panel" aria-labelledby="forecastHeading">
           <div class="section-head">
-            <h3>5-Day Outlook</h3>
+            <div>
+              <h2 id="forecastHeading">5-day outlook</h2>
+              <p class="subtitle-small" id="forecastRangeNote">--</p>
+            </div>
           </div>
           <div id="forecastGrid" class="forecast-grid"></div>
         </section>
 
         <!-- Hourly Forecast -->
-        <section class="panel hourly-panel">
+        <section class="panel hourly-panel" aria-labelledby="hourlyHeading">
           <div class="section-head">
-            <h3>Next 24 Hours</h3>
-            <p class="subtitle-small">3-hour intervals</p>
+            <div>
+              <h2 id="hourlyHeading">Next 24 hours</h2>
+              <p class="subtitle-small">3-hour steps, local time</p>
+            </div>
+            <p id="hourlyNote" class="hourly-note">--</p>
           </div>
-          <div id="hourlyStrip" class="hourly-strip"></div>
+          <div id="hourlyStrip" class="hourly-strip" role="group" aria-label="Three hourly forecast cards"></div>
         </section>
 
         <!-- Temperature & Rain Chart -->
-        <section class="panel chart-panel">
+        <section class="panel chart-panel" aria-labelledby="chartHeading">
           <div class="section-head">
-            <h3>Temperature & Rain Trend</h3>
-            <p class="subtitle-small">8-hour forecast</p>
+            <div>
+              <h2 id="chartHeading">Temperature &amp; rain trend</h2>
+              <p class="subtitle-small">Next 24 hours</p>
+            </div>
+            <p id="chartSummary" class="sr-only"></p>
           </div>
           <div class="chart-wrap">
-            <canvas id="tempChart" aria-label="Temperature and precipitation trend"></canvas>
+            <canvas id="tempChart" role="img" aria-label="Temperature and precipitation trend for the next 24 hours"></canvas>
+            <div id="chartFallback" class="chart-fallback" hidden></div>
           </div>
         </section>
       </main>
 
-      <!-- Detail Modal -->
-      <div id="detailModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-        <div class="modal-content">
-          <button id="closeDetailModal" class="modal-close" aria-label="Close details">✕</button>
-          <h2 id="detailModalTitle" class="modal-title"></h2>
-          <div id="detailModalBody" class="modal-body"></div>
-        </div>
-      </div>
+      <footer class="footer">
+        <p>
+          Data from
+          <a href="https://openweathermap.org/" target="_blank" rel="noopener noreferrer">OpenWeather</a><span
+            id="footerExtra"
+          ></span
+          >. Built as an offline-first progressive web app · v<span id="appVersion">2.0</span>
+        </p>
+      </footer>
+    </div>
 
-      <div id="settingsModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-        <div class="modal-content settings-modal">
-          <button id="closeSettingsModal" class="modal-close" aria-label="Close settings">✕</button>
-          <h2 id="settingsTitle" class="modal-title">Settings</h2>
-          <div class="modal-body">
-            <form id="settingsForm" class="settings-form">
-              <label class="settings-label" for="settingsTheme">Theme</label>
-              <select id="settingsTheme" name="theme" class="settings-select">
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
-
-              <label class="settings-label" for="settingsUnits">Temperature</label>
-              <select id="settingsUnits" name="units" class="settings-select">
-                <option value="metric">Celsius</option>
-                <option value="imperial">Fahrenheit</option>
-              </select>
-
-              <label class="settings-toggle">
-                <input id="settingsAutoRefresh" type="checkbox" />
-                <span>Auto-refresh every 10 minutes</span>
-              </label>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      <div id="loadingOverlay" class="loading-overlay" aria-hidden="true">
-        <div class="loading-spinner" aria-hidden="true"></div>
-        <p>Fetching fresh weather data</p>
+    <!-- Detail Modal -->
+    <div id="detailModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle" hidden>
+      <div class="modal-content">
+        <button id="closeDetailModal" class="modal-close" type="button" aria-label="Close details">
+          <svg class="ico" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+        <h2 id="detailModalTitle" class="modal-title"></h2>
+        <div id="detailModalBody" class="modal-body"></div>
       </div>
     </div>
 
-    <script src="app.js"></script>
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
+      <div class="modal-content settings-modal">
+        <button id="closeSettingsModal" class="modal-close" type="button" aria-label="Close settings">
+          <svg class="ico" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+        <h2 id="settingsTitle" class="modal-title">Settings</h2>
+        <div class="modal-body">
+          <form id="settingsForm" class="settings-form" autocomplete="off">
+            <label class="settings-label" for="settingsTheme">Theme</label>
+            <select id="settingsTheme" name="theme" class="settings-select">
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="auto">Match system</option>
+            </select>
+
+            <label class="settings-label" for="settingsUnits">Temperature units</label>
+            <select id="settingsUnits" name="units" class="settings-select">
+              <option value="metric">Celsius (m/s, km, hPa)</option>
+              <option value="imperial">Fahrenheit (mph, mi, inHg)</option>
+            </select>
+
+            <label class="settings-label" for="settingsLanguage">Description language</label>
+            <select id="settingsLanguage" name="language" class="settings-select">
+              <option value="en">English</option>
+              <option value="es">Español</option>
+              <option value="fr">Français</option>
+              <option value="de">Deutsch</option>
+              <option value="it">Italiano</option>
+              <option value="pt">Português</option>
+              <option value="ru">Русский</option>
+              <option value="hi">हिन्दी</option>
+              <option value="ar">العربية</option>
+              <option value="zh">中文</option>
+              <option value="ja">日本語</option>
+            </select>
+
+            <label class="settings-label" for="settingsRefresh">Auto-refresh interval</label>
+            <select id="settingsRefresh" name="refresh" class="settings-select">
+              <option value="0">Off</option>
+              <option value="5">Every 5 minutes</option>
+              <option value="10">Every 10 minutes</option>
+              <option value="30">Every 30 minutes</option>
+            </select>
+
+            <label class="settings-toggle">
+              <input id="settingsAnimations" type="checkbox" />
+              <span>Animated weather effects (rain, snow, sun)</span>
+            </label>
+            <label class="settings-toggle">
+              <input id="settingsOneCall" type="checkbox" />
+              <span>Fetch alerts from One&nbsp;Call 3.0 (paid subscription; US alerts use NWS automatically)</span>
+            </label>
+
+            <div class="settings-section">
+              <h3 class="settings-heading">
+                <svg class="ico" aria-hidden="true"><use href="#i-key"></use></svg>
+                OpenWeather API key
+              </h3>
+              <p class="settings-help">
+                Stored only in this browser (localStorage) and sent straight to api.openweathermap.org. Get a free key at
+                <a href="https://home.openweathermap.org/api_keys" target="_blank" rel="noopener noreferrer">openweathermap.org</a>.
+              </p>
+              <div class="key-row">
+                <input id="settingsApiKey" type="password" class="settings-input" placeholder="Paste your API key" spellcheck="false" />
+                <button id="saveApiKeyBtn" class="btn btn-primary btn-compact" type="button">Save</button>
+              </div>
+              <div class="key-actions">
+                <button id="testApiKeyBtn" class="btn btn-ghost btn-compact" type="button">Test key</button>
+                <button id="clearApiKeyBtn" class="btn btn-ghost btn-compact" type="button">Use built-in key</button>
+                <p id="apiKeyStatus" class="key-status" role="status"></p>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <h3 class="settings-heading">Data &amp; privacy</h3>
+              <p class="settings-help" id="settingsMeta">--</p>
+              <button id="resetDataBtn" class="btn btn-ghost btn-compact danger" type="button">Erase saved data</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay" role="status" aria-live="polite" aria-hidden="true">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <p id="loadingLabel">Fetching fresh weather data</p>
+    </div>
+
+    <div id="toastRegion" class="toast-region" role="status" aria-live="polite" aria-atomic="false"></div>
+
+    <noscript>
+      <p class="noscript-note">Atmosphere Desk needs JavaScript to fetch live weather. Enable it and reload.</p>
+    </noscript>
   </body>
 </html>

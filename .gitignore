@@ -1,0 +1,30 @@
+# Logs and local server noise
+*.log
+logs/
+npm-debug.log*
+yarn-error.log
+
+# Editors and OS cruft
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Dependency and build output (this project deliberately has none)
+node_modules/
+dist/
+build/
+.cache/
+.tmp/
+
+# Python scratch
+__pycache__/
+*.pyc
+.venv/
+
+# Local overrides: drop an API key here, never in app.js, and it stays out of git
+.env
+.env.local
+config.local.js

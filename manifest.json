@@ -1,17 +1,66 @@
 {
-  "name": "Atmosphere Desk Weather",
+  "name": "Atmosphere Desk — Weather Intelligence",
   "short_name": "Weather Desk",
-  "description": "A responsive weather dashboard with forecasts, AQI, alerts, and saved cities.",
-  "start_url": "index.html",
+  "description": "Live conditions, a 24-hour trend, a 5-day outlook, air-quality detail and official alerts for any city — installable and offline-friendly.",
+  "id": "./index.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f0f7ff",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0b1220",
   "theme_color": "#0369a1",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["weather", "utilities", "productivity"],
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "16x16 32x32",
-      "type": "image/x-icon"
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "maskable-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "Search for a city",
+      "short_name": "Search",
+      "description": "Open the dashboard with the search box focused",
+      "url": "./index.html?focus=search",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Weather where I am",
+      "short_name": "My location",
+      "description": "Load conditions for the current position",
+      "url": "./index.html?locate=1",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Dark theme",
+      "short_name": "Dark",
+      "description": "Open the dashboard in the dark palette",
+      "url": "./index.html?theme=dark",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "prefer_related_applications": false
 }

@@ -1,0 +1,25 @@
+{
+  "name": "atmosphere-desk",
+  "version": "2.1.0",
+  "private": true,
+  "description": "Offline-first weather dashboard: live conditions, 24h trend, 5-day outlook, air quality and official alerts.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test --test-reporter=spec tests/app.test.mjs",
+    "start": "python3 -m http.server 8080 --bind 0.0.0.0",
+    "serve": "python3 -m http.server 8080 --bind 0.0.0.0",
+    "check": "node --check app.js && node --check service-worker.js",
+    "icons": "node tools/build-icons.mjs"
+  },
+  "keywords": [
+    "weather",
+    "dashboard",
+    "pwa",
+    "openweathermap",
+    "air-quality"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
+}
